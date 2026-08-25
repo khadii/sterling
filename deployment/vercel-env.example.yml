@@ -1,0 +1,33 @@
+# Documentation template only. Vercel does not import this YAML file.
+# Add these keys under Project Settings > Environment Variables.
+# Apply secrets to Production and Preview; use separate Development values.
+
+environment:
+  NODE_ENV: production
+  API_PREFIX: api/v1
+  CORS_ORIGIN: https://YOUR_FRONTEND_DOMAIN
+  SWAGGER_PATH: docs
+  ENABLE_SWAGGER: "false"
+
+  # Keep enabled on Preview and Production.
+  THROTTLE_ENABLED: "true"
+  THROTTLE_TTL_MS: "60000"
+  THROTTLE_GLOBAL_LIMIT: "100"
+
+  # Supabase Project Settings > API Keys. Never expose the secret key.
+  SUPABASE_URL: https://YOUR_PROJECT_REF.supabase.co
+  SUPABASE_PUBLISHABLE_KEY: YOUR_SUPABASE_PUBLISHABLE_KEY
+  SUPABASE_SECRET_KEY: YOUR_SUPABASE_SECRET_KEY
+
+  # These are frontend pages, not API routes. Add them to Supabase's redirect allow list.
+  EMAIL_CONFIRM_REDIRECT_URL: https://YOUR_FRONTEND_DOMAIN/auth/confirm
+  PASSWORD_RESET_REDIRECT_URL: https://YOUR_FRONTEND_DOMAIN/auth/reset-password
+
+  # Optional application-email provider. Leave blank if application mail is unused.
+  SMTP_HOST: ""
+  SMTP_PORT: "587"
+  SMTP_SECURE: "false"
+  SMTP_USER: ""
+  SMTP_PASSWORD: ""
+  MAIL_FROM: no-reply@YOUR_DOMAIN
+  MAIL_MAX_RETRIES: "2"

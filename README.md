@@ -24,6 +24,26 @@ Sterling is a NestJS recruitment API. Supabase provides identity and PostgreSQL;
 
 Set `ENABLE_SWAGGER=false` in production unless the documentation is intentionally public. Never expose `SUPABASE_SECRET_KEY` or commit `.env`.
 
+## Vercel deployment
+
+Vercel detects `src/main.ts` as a NestJS entry point and deploys the API as one Node.js Function. No separate `api/index.ts`, output directory, or custom build command is required. `vercel.json` declares the framework explicitly, and Node.js 20 or newer is required by `package.json`.
+
+1. Push this project to GitHub, GitLab, or Bitbucket and import it into Vercel. If the repository contains the parent `hrhiring` directory, set the Vercel **Root Directory** to `sterling`.
+2. Copy every key from `deployment/vercel-env.example.yml` into **Project Settings > Environment Variables**. The YAML is documentation only; do not put real secrets in it or commit them.
+3. Set the variables for Preview and Production. Give Preview its own Supabase project when possible, so preview testing cannot change production users or data.
+4. Set `CORS_ORIGIN` to the frontend origins as a comma-separated string. Add every frontend confirmation/reset URL to Supabase's redirect allow list.
+5. Deploy and check `https://YOUR_API_DOMAIN/api/v1/health`. Swagger is disabled by the production template; enable it deliberately if required.
+
+CLI deployment is also available:
+
+```bash
+npx vercel@latest login
+npm run vercel:preview
+npm run vercel:prod
+```
+
+Vercel stores its project link and downloaded environment configuration under `.vercel/`, which is ignored by Git. Use `vercel env add NAME production --sensitive` for secrets or manage them through the dashboard. Do not place `SUPABASE_SECRET_KEY` or `SMTP_PASSWORD` in `vercel.json`, YAML committed with real values, or frontend variables.
+
 ## Authentication flows
 
 ### Email/password
@@ -171,4 +191,5 @@ npm test -- --runInBand
 npm run test:e2e -- --runInBand
 npm audit --omit=dev
 ```
+
 # sterling
