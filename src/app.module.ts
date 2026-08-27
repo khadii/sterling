@@ -17,7 +17,11 @@ import { SupabaseModule } from './supabase/supabase.module';
         NODE_ENV: Joi.string()
           .valid('development', 'test', 'production')
           .default('development'),
-        PORT: Joi.number().port().default(3000),
+        // Vercel may provide a Unix socket path instead of a numeric TCP port.
+        PORT: Joi.alternatives()
+          .try(Joi.number().port(), Joi.string().min(1))
+          .empty('')
+          .default(3000),
         API_PREFIX: Joi.string().default('api/v1'),
         CORS_ORIGIN: Joi.string().required(),
         SWAGGER_PATH: Joi.string().default('docs'),

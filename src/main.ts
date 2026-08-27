@@ -54,7 +54,7 @@ async function bootstrap() {
       document,
     );
   }
-  await app.listen(config.get<number>('PORT', 3000));
+  await app.listen(config.get<number | string>('PORT', 3000));
 }
 
 bootstrap().catch((error: unknown) => {
