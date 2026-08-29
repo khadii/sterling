@@ -8,6 +8,15 @@ import { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
+// Vercel's file tracer cannot infer Swagger UI's dynamically resolved assets.
+// Literal require.resolve calls keep the files inside the serverless bundle.
+const swaggerUiAssets = [
+  require.resolve('swagger-ui-dist/swagger-ui.css'),
+  require.resolve('swagger-ui-dist/swagger-ui-bundle.js'),
+  require.resolve('swagger-ui-dist/swagger-ui-standalone-preset.js'),
+];
+void swaggerUiAssets;
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);

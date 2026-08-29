@@ -4,8 +4,10 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import * as Joi from 'joi';
 import { AuthModule } from './auth/auth.module';
+import { EmployerOnboardingModule } from './employer-onboarding/employer-onboarding.module';
 import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
+import { ReferenceModule } from './reference/reference.module';
 import { SupabaseModule } from './supabase/supabase.module';
 
 @Module({
@@ -72,6 +74,8 @@ import { SupabaseModule } from './supabase/supabase.module';
     }),
     SupabaseModule,
     AuthModule,
+    EmployerOnboardingModule,
+    ReferenceModule,
     MailModule,
     HealthModule,
   ],

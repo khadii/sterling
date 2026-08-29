@@ -23,7 +23,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
       exception instanceof HttpException ? exception.getResponse() : null;
     const details =
       typeof body === 'object'
-        ? (body as { message?: string | string[]; error?: string })
+        ? (body as {
+            message?: string | string[];
+            error?: string;
+            code?: string;
+            details?: Record<string, unknown>;
+          })
         : undefined;
     const requestId = String(request.headers['x-request-id'] ?? 'unknown');
 
@@ -46,6 +51,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       path: request.url,
       requestId,
       timestamp: new Date().toISOString(),
+      ...(details?.code ? { code: details.code } : {}),
+      ...(details?.details ? { details: details.details } : {}),
     });
   }
 }

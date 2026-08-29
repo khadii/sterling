@@ -14,7 +14,7 @@ Sterling is a NestJS recruitment API. Supabase provides identity and PostgreSQL;
 ## Setup
 
 1. Fill `.env` using `.env.example`.
-2. Apply `supabase/migrations/0001_create_profiles.sql` using the Supabase SQL editor or CLI.
+2. Apply the SQL files in `supabase/migrations` in filename order using the Supabase SQL editor or CLI. Migration `0002_employer_onboarding.sql` creates the employer-onboarding schema, private logo bucket, workspace roles, permissions, and atomic provisioning function.
 3. Enable Email and Google under Supabase Authentication providers.
 4. Add `EMAIL_CONFIRM_REDIRECT_URL` and `PASSWORD_RESET_REDIRECT_URL` to the Supabase redirect allow list.
 5. Add the Google OAuth client ID and secret to Supabase. They do not belong in the NestJS environment.
@@ -143,6 +143,34 @@ Access and refresh tokens are intentionally returned in JSON because this is a g
 | POST   | `/api/v1/auth/sign-out`            |    200 | Revoke current session                                          |
 | GET    | `/api/v1/auth/me`                  |    200 | Current identity and trusted roles                              |
 | GET    | `/api/v1/health`                   |    200 | Liveness check                                                  |
+
+## Employer onboarding
+
+All routes below require a valid Supabase bearer token and the global `employer` account role. `GET /employer/onboarding` is the resume endpoint: call it after login and use `status`, `currentStep`, `completedSteps`, and `revision` to restore the UI. Draft writes require `expectedRevision`; if another tab or stale client has already written, the API returns `409 ONBOARDING_REVISION_CONFLICT` and the frontend must reload the latest state before retrying.
+
+| Step | Method and route | Data and behavior |
+| --- | --- | --- |
+| Resume | `GET /api/v1/employer/onboarding` | Returns the complete resumable draft, including signed logo preview when available. |
+| 1 | `PATCH /api/v1/employer/onboarding/company` | Auto-save `name`, `industryId`, nullable `website`, `size`, and `expectedRevision`. |
+| 1 | `POST /api/v1/employer/onboarding/company/complete` | Requires company name, active industry, and company size. Website and logo are optional. |
+| 1 | `POST /api/v1/employer/onboarding/company/logo/upload-url` | Accepts `fileName`, MIME type, and byte size; creates a short-lived private Supabase upload URL. |
+| 1 | `POST /api/v1/employer/onboarding/company/logo/confirm` | Accepts `uploadId`; verifies ownership, expiry, actual size/type, and sanitizes SVG before attaching it. |
+| 1 | `DELETE /api/v1/employer/onboarding/company/logo` | Idempotently removes the current draft logo. |
+| 2 | `PUT /api/v1/employer/onboarding/departments` | Replaces the draft with 1–20 unique department names; each has `clientId`, `name`, and optional description. |
+| 2 | `POST /api/v1/employer/onboarding/departments/complete` | Requires at least one valid, case-insensitively unique department. |
+| 3 | `PATCH /api/v1/employer/onboarding/workspace-settings` | Auto-save ISO country, IANA timezone, BCP-47 locale, week start, and supported date format. |
+| 3 | `POST /api/v1/employer/onboarding/workspace-settings/complete` | Requires every workspace preference and validates the standards-backed values. |
+| 4 | `GET /api/v1/employer/onboarding/review` | Returns the read-only company, departments, settings, and defaults that will be provisioned. |
+| Finish | `POST /api/v1/employer/onboarding/complete` | Atomically and idempotently creates the workspace, settings, departments, default pipeline, roles, permissions, and owner membership. |
+| Result | `GET /api/v1/employer/onboarding/summary` | Returns the completed workspace summary. |
+| Reference | `GET /api/v1/reference/industries?search=` | Searches active industries for the Step 1 selector. |
+| Reference | `GET /api/v1/reference/departments/suggestions?search=` | Searches suggested department names for Step 2; suggestions are not mandatory. |
+
+The frontend should debounce draft calls, keep the latest returned `revision`, and only enable each step's Complete button when its client-side checks pass. The server remains authoritative and may still reject completion with `422 ONBOARDING_STEP_INCOMPLETE`, including field-level details.
+
+Logo bytes do not pass through the NestJS/Vercel function. The frontend requests an upload URL, uploads the `File` directly to Supabase Storage using the returned signed URL/token, and then confirms the opaque `uploadId` with NestJS. The bucket is private; the API returns expiring signed preview URLs rather than public object URLs.
+
+Completion is one database transaction. It creates the organization only after all three editable steps are complete, and repeat completion requests return the same result instead of creating duplicates. Defaults include an owner membership, a standard hiring pipeline, and organization-scoped `organisation_owner`, `admin`, `hiring_manager`, `recruiter`, and `interviewer` roles. These workspace roles are separate from the global `employer`/`job_seeker` account categories. Permission IDs are stable text keys seeded by the migration and linked through `organization_role_permissions`, so future roles or permissions can be added with a new migration without changing a PostgreSQL enum.
 
 The forgot-password and resend endpoints deliberately return generic messages to prevent account discovery.
 

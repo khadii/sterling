@@ -10,4 +10,7 @@ export class ApiErrorDto {
   @ApiProperty() path!: string;
   @ApiProperty() requestId!: string;
   @ApiProperty() timestamp!: string;
+  @ApiProperty({ required: false }) code?: string;
+  @ApiProperty({ required: false, type: Object })
+  details?: Record<string, unknown>;
 }
