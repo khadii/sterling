@@ -24,6 +24,7 @@ interface OnboardingRow {
   user_id: string;
   status: 'not_started' | 'in_progress' | 'provisioning' | 'completed';
   current_step: number;
+  started_at: string | null;
   completed_steps: number[];
   company_name: string | null;
   industry_id: string | null;
@@ -69,6 +70,15 @@ export class EmployerOnboardingService {
 
   async getState(userId: string) {
     return this.serializeState(await this.getRow(userId));
+  }
+
+  async start(userId: string) {
+    const { error } = await this.supabase.adminClient.rpc(
+      'start_employer_onboarding',
+      { p_user_id: userId } as never,
+    );
+    if (error) throw mapOnboardingDatabaseError(error);
+    return this.getState(userId);
   }
 
   async saveCompany(userId: string, dto: CompanyDraftDto) {
@@ -457,6 +467,7 @@ export class EmployerOnboardingService {
     if (row.status === 'completed') {
       return {
         status: 'completed',
+        startedAt: row.started_at ?? null,
         currentStep: 4,
         totalSteps: 4,
         progressPercentage: 100,
@@ -468,7 +479,8 @@ export class EmployerOnboardingService {
     }
     return {
       status: row.status === 'not_started' ? 'not_started' : 'in_progress',
-      currentStep: row.current_step,
+      startedAt: row.started_at ?? null,
+      currentStep: row.status === 'not_started' ? 0 : row.current_step,
       totalSteps: 4,
       progressPercentage: Math.min(row.completed_steps.length * 25, 75),
       nextAction: this.nextAction(row),

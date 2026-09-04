@@ -57,6 +57,16 @@ export class EmployerOnboardingController {
     return this.onboarding.getState(request.user.id);
   }
 
+  @Post('start')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Leave Welcome and start onboarding; retries preserve progress',
+  })
+  @ApiOkResponse({ type: OnboardingResponseDto })
+  start(@Req() request: RequestWithUser) {
+    return this.onboarding.start(request.user.id);
+  }
+
   @Patch('company')
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @ApiOperation({ summary: 'Auto-save the Step 1 company draft' })
