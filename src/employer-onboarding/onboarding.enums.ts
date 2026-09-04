@@ -3,7 +3,7 @@ export enum CompanySize {
   ELEVEN_TO_TWENTY_FIVE = '11_25',
   TWENTY_SIX_TO_FIFTY = '26_50',
   FIFTY_ONE_TO_ONE_HUNDRED = '51_100',
-  OVER_ONE_HUNDRED = '100_plus',
+  OVER_ONE_HUNDRED = '101_plus',
 }
 
 export enum WeekStart {

@@ -7,6 +7,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
   MinLength,
@@ -14,6 +15,14 @@ import {
 } from 'class-validator';
 
 export class DepartmentDraftItemDto {
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'Active catalogue icon. Omit for the General default.',
+  })
+  @IsOptional()
+  @IsUUID()
+  iconId?: string;
+
   @ApiProperty({ maxLength: 100 })
   @IsString()
   @MaxLength(100)

@@ -1,5 +1,7 @@
 # Sterling API
 
+For the platform superadmin bootstrap, department-icon APIs, and migration 0003 rollout, see [Platform administration](docs/platform-administration.md).
+
 Sterling is a NestJS recruitment API. Supabase provides identity and PostgreSQL; NestJS owns validation, authorization, error contracts, throttling, Swagger, and application email.
 
 ## Architecture

@@ -9,6 +9,8 @@
     "node": ">=20"
   },
   "scripts": {
+    "admin:prepare": "node --env-file=.env scripts/bootstrap-superadmin.mjs",
+    "admin:bootstrap": "node --env-file=.env scripts/bootstrap-superadmin.mjs --apply",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
@@ -41,7 +43,8 @@
     "nodemailer": "^9.0.5",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "sanitize-html": "^2.17.7"
+    "saxes": "^6.0.0",
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -55,7 +58,6 @@
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.7",
     "@types/nodemailer": "^6.4.17",
-    "@types/sanitize-html": "^2.16.1",
     "@types/supertest": "^6.0.2",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",

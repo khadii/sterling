@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import * as Joi from 'joi';
 import { AuthModule } from './auth/auth.module';
+import { DepartmentIconsModule } from './department-icons/department-icons.module';
 import { EmployerOnboardingModule } from './employer-onboarding/employer-onboarding.module';
 import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
@@ -74,6 +75,7 @@ import { SupabaseModule } from './supabase/supabase.module';
     }),
     SupabaseModule,
     AuthModule,
+    DepartmentIconsModule,
     EmployerOnboardingModule,
     ReferenceModule,
     MailModule,

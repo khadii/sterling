@@ -3,8 +3,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class CountryReferenceDto {
   @ApiProperty({ example: 'NG' }) code!: string;
   @ApiProperty({ example: 'Nigeria' }) name!: string;
-  @ApiPropertyOptional({ nullable: true, example: '+234' }) phoneCode?: string | null;
-  @ApiPropertyOptional({ nullable: true, example: 'NGN' }) currency?: string | null;
+  @ApiPropertyOptional({ nullable: true, example: '+234' }) phoneCode?:
+    string | null;
+  @ApiPropertyOptional({ nullable: true, example: 'NGN' }) currency?:
+    string | null;
   @ApiProperty({ example: '🇳🇬' }) flag!: string;
 }
 
@@ -20,7 +22,8 @@ export class TimezoneReferenceDto {
   @ApiProperty({ example: 'Africa/Lagos' }) name!: string;
   @ApiProperty({ example: '+01:00' }) offset!: string;
   @ApiProperty({ example: 'GMT+1' }) abbr!: string;
-  @ApiPropertyOptional({ nullable: true, example: 'NG' }) countryCode!: string | null;
+  @ApiPropertyOptional({ nullable: true, example: 'NG' }) countryCode!:
+    string | null;
 }
 
 export class TimezonesResponseDto {
@@ -34,7 +37,8 @@ export class LocaleReferenceDto {
   @ApiProperty({ example: 'English' }) language!: string;
   @ApiProperty({ example: 'NG' }) countryCode!: string;
   @ApiProperty({ example: 'Nigeria' }) countryName!: string;
-  @ApiProperty({ enum: ['sunday', 'monday'] }) defaultWeekStart!: 'sunday' | 'monday';
+  @ApiProperty({ enum: ['sunday', 'monday'] }) defaultWeekStart!:
+    'sunday' | 'monday';
   @ApiProperty({ enum: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'] })
   defaultDateFormat!: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD';
 }

@@ -15,6 +15,7 @@ interface IndustryRecord {
 }
 
 interface DepartmentSuggestionRecord {
+  icon_id: string;
   name: string;
   description: string | null;
   is_popular: boolean;
@@ -58,12 +59,13 @@ export class ReferenceService {
   async departmentSuggestions(query: SuggestionQueryDto) {
     const { data, error } = await this.supabase.adminClient
       .from('department_suggestions')
-      .select('name,description,is_popular,display_order')
+      .select('name,description,is_popular,display_order,icon_id')
       .order('display_order')
       .limit(query.limit);
     if (error) throw mapDatabaseError(error, 'load department suggestions');
     const rows = data as unknown as DepartmentSuggestionRecord[];
     const suggestions = rows.map((item) => ({
+      iconId: item.icon_id,
       name: item.name,
       description: item.description,
       popular: item.is_popular,

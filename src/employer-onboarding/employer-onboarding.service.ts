@@ -6,7 +6,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import sanitizeHtml from 'sanitize-html';
+import { validateImage } from '../common/images/validate-image';
 import * as countries from 'i18n-iso-countries';
 import { mapDatabaseError } from '../supabase/database-error.mapper';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -47,6 +47,7 @@ interface OnboardingRow {
 }
 
 export interface DepartmentDraft {
+  iconId?: string;
   clientId: string;
   name: string;
   description?: string | null;
@@ -154,7 +155,9 @@ export class EmployerOnboardingService {
   }
 
   async createLogoUpload(userId: string, dto: CreateLogoUploadDto) {
-    await this.getRow(userId);
+    const row = await this.getRow(userId);
+    if (row.status === 'completed')
+      throw new ConflictException('Completed onboarding cannot be edited');
     const uploadId = randomUUID();
     const extension = this.extensionFor(dto.contentType);
     const storagePath = `${userId}/${uploadId}/logo.${extension}`;
@@ -218,14 +221,12 @@ export class EmployerOnboardingService {
         'Uploaded file content does not match its declared image type',
       );
     }
-    let safeBody: Buffer = buffer;
-    if (upload.declared_content_type === LogoContentType.SVG) {
-      safeBody = Buffer.from(this.sanitizeSvg(buffer.toString('utf8')));
-    }
+    const safeBody = await validateImage(buffer, upload.declared_content_type);
+    const finalPath = `${upload.storage_path}.verified.png`;
     const { error: replaceError } = await this.supabase.adminClient.storage
       .from(LOGO_BUCKET)
-      .upload(upload.storage_path, safeBody, {
-        contentType: upload.declared_content_type,
+      .upload(finalPath, safeBody, {
+        contentType: 'image/png',
         upsert: true,
       });
     if (replaceError) {
@@ -236,13 +237,14 @@ export class EmployerOnboardingService {
       await this.supabase.adminClient
         .from('employer_onboarding')
         .update({
-          logo_path: upload.storage_path,
-          logo_content_type: upload.declared_content_type,
+          logo_path: finalPath,
+          logo_content_type: 'image/png',
           logo_uploaded_at: new Date().toISOString(),
           company_revision: current.company_revision + 1,
         } as never)
         .eq('user_id', userId)
         .eq('company_revision', current.company_revision)
+        .neq('status', 'completed')
         .select('user_id')
         .maybeSingle();
     if (updateError) throw mapDatabaseError(updateError, 'confirm logo upload');
@@ -257,7 +259,7 @@ export class EmployerOnboardingService {
       .eq('id', upload.id);
     if (confirmError)
       throw mapDatabaseError(confirmError, 'confirm logo upload');
-    if (current.logo_path && current.logo_path !== upload.storage_path) {
+    if (current.logo_path && current.logo_path !== finalPath) {
       await this.discardLogo(current.logo_path);
     }
     return this.companyResponse(await this.getRow(userId));
@@ -265,8 +267,10 @@ export class EmployerOnboardingService {
 
   async removeLogo(userId: string): Promise<void> {
     const row = await this.getRow(userId);
+    if (row.status === 'completed')
+      throw new ConflictException('Completed onboarding cannot be edited');
     if (!row.logo_path) return;
-    const { error } = await this.supabase.adminClient
+    const { data: removed, error } = await this.supabase.adminClient
       .from('employer_onboarding')
       .update({
         logo_path: null,
@@ -274,8 +278,16 @@ export class EmployerOnboardingService {
         logo_uploaded_at: null,
         company_revision: row.company_revision + 1,
       } as never)
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('company_revision', row.company_revision)
+      .neq('status', 'completed')
+      .select('user_id')
+      .maybeSingle();
     if (error) throw mapDatabaseError(error, 'remove company logo');
+    if (!removed)
+      throw new ConflictException(
+        'Company draft changed; reload before removing the logo',
+      );
     await this.discardLogo(row.logo_path);
   }
 
@@ -351,7 +363,7 @@ export class EmployerOnboardingService {
         .single(),
       this.supabase.adminClient
         .from('departments')
-        .select('id,name,description,display_order')
+        .select('id,name,description,display_order,icon_id')
         .eq('organization_id', organizationId)
         .order('display_order'),
       this.supabase.adminClient
@@ -565,7 +577,7 @@ export class EmployerOnboardingService {
             '11_25': '11-25 Employees',
             '26_50': '26-50 Employees',
             '51_100': '51-100 Employees',
-            '100_plus': '100+ Employees',
+            '101_plus': '101+ Employees',
           } as Record<string, string>
         )[size] ?? size)
       : null;
@@ -612,74 +624,6 @@ export class EmployerOnboardingService {
       .trim()
       .replace(/^<\?xml[^>]*>\s*/i, '');
     return text.startsWith('<svg');
-  }
-
-  private sanitizeSvg(svg: string): string {
-    const sanitized = sanitizeHtml(svg, {
-      allowedTags: [
-        'svg',
-        'g',
-        'path',
-        'circle',
-        'ellipse',
-        'line',
-        'polyline',
-        'polygon',
-        'rect',
-        'text',
-        'tspan',
-        'defs',
-        'linearGradient',
-        'radialGradient',
-        'stop',
-        'clipPath',
-        'mask',
-        'title',
-        'desc',
-      ],
-      allowedAttributes: {
-        '*': [
-          'id',
-          'class',
-          'fill',
-          'fill-opacity',
-          'stroke',
-          'stroke-width',
-          'stroke-opacity',
-          'opacity',
-          'transform',
-          'd',
-          'x',
-          'y',
-          'x1',
-          'x2',
-          'y1',
-          'y2',
-          'cx',
-          'cy',
-          'r',
-          'rx',
-          'ry',
-          'width',
-          'height',
-          'viewBox',
-          'points',
-          'offset',
-          'stop-color',
-          'stop-opacity',
-          'font-size',
-          'text-anchor',
-          'xmlns',
-        ],
-      },
-      allowedSchemes: [],
-      disallowedTagsMode: 'discard',
-      parser: { lowerCaseTags: false, lowerCaseAttributeNames: false },
-    });
-    if (!sanitized.trim().startsWith('<svg')) {
-      throw new BadRequestException('SVG logo is invalid or unsafe');
-    }
-    return sanitized;
   }
 
   private async discardLogo(path: string) {

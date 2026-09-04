@@ -16,7 +16,11 @@ export class CreateLogoUploadDto {
   @MaxLength(150)
   fileName!: string;
 
-  @ApiProperty({ enum: LogoContentType })
+  @ApiProperty({
+    enum: LogoContentType,
+    description:
+      'Maximum 800 × 400 pixels. Single-frame images only; verified output is PNG.',
+  })
   @IsEnum(LogoContentType)
   contentType!: LogoContentType;
 

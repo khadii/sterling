@@ -1,8 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 
-jest.mock('sanitize-html', () => (value: string) => value);
-
 import { EmployerOnboardingService } from './employer-onboarding.service';
 
 describe('EmployerOnboardingService', () => {
