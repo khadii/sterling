@@ -6,6 +6,7 @@ import * as Joi from 'joi';
 import { AuthModule } from './auth/auth.module';
 import { DepartmentIconsModule } from './department-icons/department-icons.module';
 import { EmployerOnboardingModule } from './employer-onboarding/employer-onboarding.module';
+import { EmployerWorkspaceModule } from './employer-workspace/employer-workspace.module';
 import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
 import { ReferenceModule } from './reference/reference.module';
@@ -77,6 +78,7 @@ import { SupabaseModule } from './supabase/supabase.module';
     AuthModule,
     DepartmentIconsModule,
     EmployerOnboardingModule,
+    EmployerWorkspaceModule,
     ReferenceModule,
     MailModule,
     HealthModule,

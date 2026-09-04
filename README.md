@@ -146,6 +146,32 @@ Access and refresh tokens are intentionally returned in JSON because this is a g
 | GET    | `/api/v1/auth/me`                  |    200 | Current identity and trusted roles                              |
 | GET    | `/api/v1/health`                   |    200 | Liveness check                                                  |
 
+### Employer workspace dashboard
+
+Every endpoint below requires an employer bearer token plus `organizationId` in
+the query string or request body. The API verifies both organization membership
+and the workspace permission needed for the operation.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| GET | `/api/v1/employer/dashboard` | Bounded activity, event and department widget data |
+| GET | `/api/v1/employer/activities` | Cursor-paginated activity timeline with date, category and title search filters |
+| GET | `/api/v1/employer/calendar/summary` | Event counts for one organization-local date |
+| GET | `/api/v1/employer/calendar/events` | Events that intersect a requested date range |
+| POST | `/api/v1/employer/calendar/events` | Create a manual calendar event |
+| GET | `/api/v1/employer/calendar/events/:eventId` | View event details |
+| PATCH | `/api/v1/employer/calendar/events/:eventId` | Update a manual event |
+| DELETE | `/api/v1/employer/calendar/events/:eventId` | Delete a manual event |
+| GET | `/api/v1/employer/departments` | Search/list departments and available summary metrics |
+| POST | `/api/v1/employer/departments` | Create a department in a completed workspace |
+| GET | `/api/v1/employer/departments/:departmentId` | View department details and available metrics |
+
+Calendar range queries use a half-open interval (`from` inclusive, `to`
+exclusive) and include multi-day events that overlap the interval. Activity
+cursors are opaque; clients send `nextCursor` back unchanged. Metrics for
+employee, recruiting and leave domains return `null` with `unavailableMetrics`
+until those source modules exist, rather than presenting invented zero values.
+
 ## Employer onboarding
 
 All routes below require a valid Supabase bearer token and the global `employer` account role. `GET /employer/onboarding` is the resume endpoint: call it after login and use `status`, `currentStep`, `completedSteps`, and `revision` to restore the UI. Draft writes require `expectedRevision`; if another tab or stale client has already written, the API returns `409 ONBOARDING_REVISION_CONFLICT` and the frontend must reload the latest state before retrying.
