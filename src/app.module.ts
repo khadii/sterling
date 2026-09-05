@@ -12,6 +12,19 @@ import { MailModule } from './mail/mail.module';
 import { ReferenceModule } from './reference/reference.module';
 import { SupabaseModule } from './supabase/supabase.module';
 
+const productionFrontendUrl = (value: string, helpers: Joi.CustomHelpers) => {
+  const hostname = new URL(value).hostname.toLowerCase();
+  if (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '0.0.0.0' ||
+    hostname === '[::1]'
+  ) {
+    return helpers.error('any.invalid');
+  }
+  return value;
+};
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -52,8 +65,22 @@ import { SupabaseModule } from './supabase/supabase.module';
           .required(),
         SUPABASE_PUBLISHABLE_KEY: Joi.string().required(),
         SUPABASE_SECRET_KEY: Joi.string().required(),
-        EMAIL_CONFIRM_REDIRECT_URL: Joi.string().uri().required(),
-        PASSWORD_RESET_REDIRECT_URL: Joi.string().uri().required(),
+        EMAIL_CONFIRM_REDIRECT_URL: Joi.when('NODE_ENV', {
+          is: 'production',
+          then: Joi.string()
+            .uri({ scheme: ['https'] })
+            .custom(productionFrontendUrl)
+            .required(),
+          otherwise: Joi.string().uri().required(),
+        }),
+        PASSWORD_RESET_REDIRECT_URL: Joi.when('NODE_ENV', {
+          is: 'production',
+          then: Joi.string()
+            .uri({ scheme: ['https'] })
+            .custom(productionFrontendUrl)
+            .required(),
+          otherwise: Joi.string().uri().required(),
+        }),
         SMTP_HOST: Joi.string().allow('').optional(),
         SMTP_PORT: Joi.number().port().default(587),
         SMTP_SECURE: Joi.boolean().default(false),
