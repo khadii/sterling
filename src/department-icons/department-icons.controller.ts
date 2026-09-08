@@ -1,5 +1,6 @@
 import {
   Body,
+  BadRequestException,
   Controller,
   Delete,
   Get,
@@ -11,9 +12,15 @@ import {
   Query,
   Req,
   UseGuards,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
@@ -23,6 +30,7 @@ import {
 import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { RequestWithUser } from '../common/types/request-with-user.type';
+import { UploadedFile as UploadedFileData } from '../common/types/uploaded-file.type';
 import { DepartmentIconsService } from './department-icons.service';
 import { PlatformIconGuard } from './platform-icon.guard';
 import {
@@ -70,6 +78,32 @@ export class DepartmentIconAdminController {
   })
   upload(@Req() request: RequestWithUser, @Body() dto: IconUploadDto) {
     return this.icons.uploadUrl(request.user.id, dto);
+  }
+
+  @Post('upload')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 1_048_576 } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['name', 'file'],
+      properties: {
+        name: { type: 'string', example: 'Logistics' },
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiOperation({ summary: 'Upload, validate, and publish a department icon' })
+  uploadFile(
+    @Req() request: RequestWithUser,
+    @Body('name') name: string,
+    @UploadedFile() file?: UploadedFileData,
+  ) {
+    if (!name?.trim()) throw new BadRequestException('Icon name is required');
+    if (!file) throw new BadRequestException('An icon file is required');
+    return this.icons.upload(request.user.id, name.trim(), file);
   }
   @Post('confirm')
   @HttpCode(200)

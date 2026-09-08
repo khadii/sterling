@@ -1,5 +1,6 @@
 import {
   Body,
+  BadRequestException,
   Controller,
   Delete,
   Get,
@@ -10,9 +11,14 @@ import {
   Put,
   Req,
   UseGuards,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
@@ -26,6 +32,7 @@ import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { UserRole } from '../common/enums/user-role.enum';
 import { RequestWithUser } from '../common/types/request-with-user.type';
+import { UploadedFile as UploadedFileData } from '../common/types/uploaded-file.type';
 import { CompanyDraftDto } from './dto/company-draft.dto';
 import { SaveDepartmentsDto } from './dto/departments.dto';
 import { ConfirmLogoUploadDto, CreateLogoUploadDto } from './dto/logo.dto';
@@ -91,6 +98,27 @@ export class EmployerOnboardingController {
     @Body() dto: CreateLogoUploadDto,
   ) {
     return this.onboarding.createLogoUpload(request.user.id, dto);
+  }
+
+  @Post('company/logo/upload')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5_242_880 } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiOperation({ summary: 'Upload, validate, and save a company logo' })
+  uploadLogo(
+    @Req() request: RequestWithUser,
+    @UploadedFile() file?: UploadedFileData,
+  ) {
+    if (!file) throw new BadRequestException('A logo file is required');
+    return this.onboarding.uploadLogo(request.user.id, file);
   }
 
   @Post('company/logo/confirm')

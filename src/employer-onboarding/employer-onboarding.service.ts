@@ -10,6 +10,7 @@ import { validateImage } from '../common/images/validate-image';
 import * as countries from 'i18n-iso-countries';
 import { mapDatabaseError } from '../supabase/database-error.mapper';
 import { SupabaseService } from '../supabase/supabase.service';
+import { UploadedFile } from '../common/types/uploaded-file.type';
 import { CompanyDraftDto } from './dto/company-draft.dto';
 import { SaveDepartmentsDto } from './dto/departments.dto';
 import { ConfirmLogoUploadDto, CreateLogoUploadDto } from './dto/logo.dto';
@@ -202,6 +203,43 @@ export class EmployerOnboardingService {
     };
   }
 
+  async uploadLogo(userId: string, file: UploadedFile) {
+    const row = await this.getRow(userId);
+    if (row.status === 'completed')
+      throw new ConflictException('Completed onboarding cannot be edited');
+    const contentType = file.mimetype as LogoContentType;
+    if (!Object.values(LogoContentType).includes(contentType))
+      throw new BadRequestException('Unsupported logo image type');
+    if (!file.size || file.size > LOGO_MAX_SIZE)
+      throw new BadRequestException('Logo must be between 1 byte and 5 MB');
+
+    const uploadId = randomUUID();
+    const extension = this.extensionFor(contentType);
+    const storagePath = `${userId}/${uploadId}/logo.${extension}`;
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+    const { error: insertError } = await this.supabase.adminClient
+      .from('onboarding_logo_uploads')
+      .insert({
+        id: uploadId,
+        user_id: userId,
+        storage_path: storagePath,
+        original_file_name: file.originalname,
+        declared_content_type: contentType,
+        declared_size: file.size,
+        expires_at: expiresAt,
+      } as never);
+    if (insertError) throw mapDatabaseError(insertError, 'create logo upload');
+
+    const { error: uploadError } = await this.supabase.adminClient.storage
+      .from(LOGO_BUCKET)
+      .upload(storagePath, file.buffer, { contentType, upsert: false });
+    if (uploadError) {
+      await this.discardLogo(storagePath);
+      throw new ServiceUnavailableException('Unable to store logo upload');
+    }
+    return this.confirmLogo(userId, { uploadId });
+  }
+
   async confirmLogo(userId: string, dto: ConfirmLogoUploadDto) {
     const upload = await this.getLogoUpload(userId, dto.uploadId);
     if (upload.confirmed_at) {
@@ -272,6 +310,7 @@ export class EmployerOnboardingService {
     if (current.logo_path && current.logo_path !== finalPath) {
       await this.discardLogo(current.logo_path);
     }
+    await this.discardLogo(upload.storage_path);
     return this.companyResponse(await this.getRow(userId));
   }
 

@@ -8,6 +8,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { SupabaseService } from '../supabase/supabase.service';
 import { mapDatabaseError } from '../supabase/database-error.mapper';
+import { UploadedFile } from '../common/types/uploaded-file.type';
 import { validateImage } from '../common/images/validate-image';
 import { IconQueryDto, IconUploadDto, UpdateIconDto } from './icon.dto';
 
@@ -87,6 +88,43 @@ export class DepartmentIconsService {
       token: data.token,
       expiresAt,
     };
+  }
+
+  async upload(userId: string, name: string, file: UploadedFile) {
+    const contentType = file.mimetype;
+    if (
+      !['image/png', 'image/jpeg', 'image/gif', 'image/svg+xml'].includes(
+        contentType,
+      )
+    )
+      throw new BadRequestException('Unsupported icon image type');
+    if (!file.size || file.size > 1_048_576)
+      throw new BadRequestException('Icon must be between 1 byte and 1 MB');
+
+    const id = randomUUID();
+    const path = `pending/${userId}/${id}`;
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+    const { error } = await this.supabase.adminClient
+      .from('department_icon_uploads')
+      .insert({
+        id,
+        created_by: userId,
+        name,
+        content_type: contentType,
+        file_size: file.size,
+        storage_path: path,
+        expires_at: expiresAt,
+      } as never);
+    if (error) throw mapDatabaseError(error, 'create icon upload');
+
+    const stored = await this.supabase.adminClient.storage
+      .from(BUCKET)
+      .upload(path, file.buffer, { contentType, upsert: false });
+    if (stored.error) {
+      await this.supabase.adminClient.storage.from(BUCKET).remove([path]);
+      throw new ServiceUnavailableException('Unable to store icon upload');
+    }
+    return this.confirm(userId, id);
   }
 
   async confirm(userId: string, uploadId: string) {

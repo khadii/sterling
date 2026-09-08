@@ -181,6 +181,7 @@ All routes below require a valid Supabase bearer token and the global `employer`
 | Resume | `GET /api/v1/employer/onboarding` | Returns the complete resumable draft, including signed logo preview when available. |
 | 1 | `PATCH /api/v1/employer/onboarding/company` | Auto-save `name`, `industryId`, nullable `website`, `size`, and `expectedRevision`. |
 | 1 | `POST /api/v1/employer/onboarding/company/complete` | Requires company name, active industry, and company size. Website and logo are optional. |
+| 1 | `POST /api/v1/employer/onboarding/company/logo/upload` | Multipart upload with `file`; the backend validates, sanitizes and stores the verified PNG in one request. |
 | 1 | `POST /api/v1/employer/onboarding/company/logo/upload-url` | Accepts `fileName`, MIME type, and byte size; creates a short-lived private Supabase upload URL. |
 | 1 | `POST /api/v1/employer/onboarding/company/logo/confirm` | Accepts `uploadId`; verifies ownership, expiry, actual size/type, and sanitizes SVG before attaching it. |
 | 1 | `DELETE /api/v1/employer/onboarding/company/logo` | Idempotently removes the current draft logo. |
@@ -196,7 +197,7 @@ All routes below require a valid Supabase bearer token and the global `employer`
 
 The frontend should debounce draft calls, keep the latest returned `revision`, and only enable each step's Complete button when its client-side checks pass. The server remains authoritative and may still reject completion with `422 ONBOARDING_STEP_INCOMPLETE`, including field-level details.
 
-Logo bytes do not pass through the NestJS/Vercel function. The frontend requests an upload URL, uploads the `File` directly to Supabase Storage using the returned signed URL/token, and then confirms the opaque `uploadId` with NestJS. The bucket is private; the API returns expiring signed preview URLs rather than public object URLs.
+The recommended logo endpoint is the multipart `company/logo/upload` route: the frontend sends a `file` field and the backend validates, sanitizes and stores the verified PNG in one request. The older `company/logo/upload-url` plus `confirm` flow remains available for clients that need direct-to-Supabase uploads. The bucket is private; the API returns expiring signed preview URLs rather than public object URLs.
 
 Completion is one database transaction. It creates the organization only after all three editable steps are complete, and repeat completion requests return the same result instead of creating duplicates. Defaults include an owner membership, a standard hiring pipeline, and organization-scoped `organisation_owner`, `admin`, `hiring_manager`, `recruiter`, and `interviewer` roles. These workspace roles are separate from the global `employer`/`job_seeker` account categories. Permission IDs are stable text keys seeded by the migration and linked through `organization_role_permissions`, so future roles or permissions can be added with a new migration without changing a PostgreSQL enum.
 

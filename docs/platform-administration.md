@@ -20,11 +20,12 @@ All routes require `Authorization: Bearer <Supabase access token>`.
 | GET | `/api/v1/reference/department-icons?page=1&limit=50` | Authenticated users; active icons only |
 | GET | `/api/v1/admin/department-icons?page=1&limit=50` | Platform icon managers; includes inactive icons |
 | POST | `/api/v1/admin/department-icons/upload-url` | Platform icon managers |
+| POST | `/api/v1/admin/department-icons/upload` | Platform icon managers; multipart `file` and `name` |
 | POST | `/api/v1/admin/department-icons/confirm` | Platform icon managers |
 | PATCH | `/api/v1/admin/department-icons/:id` | Platform icon managers |
 | DELETE | `/api/v1/admin/department-icons/:id` | Platform icon managers |
 
-Upload request:
+Legacy signed-upload request:
 
 ```json
 {"name":"Logistics","contentType":"image/png","fileSize":12345}
