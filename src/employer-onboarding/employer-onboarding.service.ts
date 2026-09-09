@@ -120,6 +120,9 @@ export class EmployerOnboardingService {
   async saveDepartments(userId: string, dto: SaveDepartmentsDto) {
     const normalized = dto.departments.map((department) => ({
       ...department,
+      // IDs are owned by the API. Existing clients may send the ID returned
+      // by a previous save, but new rows never need to generate one.
+      clientId: department.clientId ?? randomUUID(),
       name: department.name.trim().replace(/\s+/g, ' '),
       description: department.description?.trim() || null,
     }));

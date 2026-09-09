@@ -30,6 +30,14 @@ describe('employer onboarding DTOs', () => {
     expect(await validate(dto)).not.toHaveLength(0);
   });
 
+  it('allows the API to generate a department draft ID', async () => {
+    const dto = plainToInstance(SaveDepartmentsDto, {
+      expectedRevision: 0,
+      departments: [{ name: 'Engineering', description: null }],
+    });
+    expect(await validate(dto)).toHaveLength(0);
+  });
+
   it('validates ISO countries, IANA timezones, and BCP 47 locales', async () => {
     const valid = plainToInstance(WorkspaceSettingsDto, {
       expectedRevision: 0,

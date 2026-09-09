@@ -80,7 +80,7 @@ Verified locally:
 - PUT /api/v1/employer/onboarding/departments replaces the department draft.
 - POST /api/v1/employer/onboarding/departments/complete completes that step.
 - GET /api/v1/reference/department-icons supplies active icons.
-- Department draft DTO already supports clientId, name, optional iconId and description, plus expectedRevision. Names are trimmed/normalized and limited to 2–60 characters; the draft allows 1–20 departments.
+- Department draft DTO supports an API-issued clientId, name, optional iconId and description, plus expectedRevision. Omit clientId for new rows; the save response returns it. Names are trimmed/normalized and limited to 2–60 characters; the draft allows 1–20 departments.
 
 Reuse these existing onboarding contracts. Migration `0007_employer_dashboard.sql` and the `employer-workspace` NestJS module now implement the dashboard, live department, activity and calendar contracts above. Employee-directory, recruiting, leave, payroll and performance source modules are still absent, so their derived metrics are returned as unavailable instead of fabricated.
 

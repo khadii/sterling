@@ -185,7 +185,7 @@ All routes below require a valid Supabase bearer token and the global `employer`
 | 1 | `POST /api/v1/employer/onboarding/company/logo/upload-url` | Accepts `fileName`, MIME type, and byte size; creates a short-lived private Supabase upload URL. |
 | 1 | `POST /api/v1/employer/onboarding/company/logo/confirm` | Accepts `uploadId`; verifies ownership, expiry, actual size/type, and sanitizes SVG before attaching it. |
 | 1 | `DELETE /api/v1/employer/onboarding/company/logo` | Idempotently removes the current draft logo. |
-| 2 | `PUT /api/v1/employer/onboarding/departments` | Replaces the draft with 1–20 unique department names; each has `clientId`, `name`, and optional description. |
+| 2 | `PUT /api/v1/employer/onboarding/departments` | Replaces the draft with 1–20 unique departments. Omit `clientId` for new rows; the API generates and returns the server-issued ID. |
 | 2 | `POST /api/v1/employer/onboarding/departments/complete` | Requires at least one valid, case-insensitively unique department. |
 | 3 | `PATCH /api/v1/employer/onboarding/workspace-settings` | Auto-save ISO country, IANA timezone, BCP-47 locale, week start, and supported date format. |
 | 3 | `POST /api/v1/employer/onboarding/workspace-settings/complete` | Requires every workspace preference and validates the standards-backed values. |

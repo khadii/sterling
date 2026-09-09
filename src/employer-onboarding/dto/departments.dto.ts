@@ -23,10 +23,15 @@ export class DepartmentDraftItemDto {
   @IsUUID()
   iconId?: string;
 
-  @ApiProperty({ maxLength: 100 })
+  @ApiPropertyOptional({
+    maxLength: 100,
+    description:
+      'Server-issued draft identifier. Omit when creating a new row; the API returns it in the saved response.',
+  })
+  @IsOptional()
   @IsString()
   @MaxLength(100)
-  clientId!: string;
+  clientId?: string;
 
   @ApiProperty({ minLength: 2, maxLength: 60 })
   @Transform(({ value }: { value: unknown }) =>
