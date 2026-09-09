@@ -25,7 +25,9 @@ export async function validateImage(
   try {
     const image = sharp(body, {
       limitInputPixels: maxWidth * maxHeight,
-      failOn: 'warning',
+      // Metadata/profile warnings are common in valid user-supplied images.
+      // Decode errors still fail, but harmless warnings must not reject uploads.
+      failOn: 'error',
     });
     const metadata = await image.metadata();
     const expected: Record<string, string> = {

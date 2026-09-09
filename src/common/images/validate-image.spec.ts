@@ -11,6 +11,18 @@ describe('validateImage', () => {
     const output = await validateImage(await png(800, 400), 'image/png');
     expect((await sharp(output).metadata()).format).toBe('png');
   });
+  it.each([
+    ['image/jpeg', 'jpeg'],
+    ['image/gif', 'gif'],
+  ] as const)('accepts a valid %s image', async (contentType, format) => {
+    const input = await sharp({
+      create: { width: 64, height: 64, channels: 4, background: '#123456' },
+    })
+      [format]()
+      .toBuffer();
+    const output = await validateImage(input, contentType, 256, 256);
+    expect((await sharp(output).metadata()).format).toBe('png');
+  });
   it('rejects excessive dimensions', async () => {
     await expect(
       validateImage(await png(801, 400), 'image/png'),

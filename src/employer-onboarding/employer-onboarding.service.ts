@@ -269,7 +269,13 @@ export class EmployerOnboardingService {
         'Uploaded file content does not match its declared image type',
       );
     }
-    const safeBody = await validateImage(buffer, upload.declared_content_type);
+    let safeBody: Buffer;
+    try {
+      safeBody = await validateImage(buffer, upload.declared_content_type);
+    } catch (validationError) {
+      await this.discardLogo(upload.storage_path);
+      throw validationError;
+    }
     const finalPath = `${upload.storage_path}.verified.png`;
     const { error: replaceError } = await this.supabase.adminClient.storage
       .from(LOGO_BUCKET)

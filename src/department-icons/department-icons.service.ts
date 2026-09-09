@@ -150,7 +150,15 @@ export class DepartmentIconsService {
       throw new BadRequestException(
         'Icon size does not match the upload request',
       );
-    const safe = await validateImage(input, upload.content_type, 256, 256);
+    let safe: Buffer;
+    try {
+      safe = await validateImage(input, upload.content_type, 256, 256);
+    } catch (error) {
+      await this.supabase.adminClient.storage
+        .from(BUCKET)
+        .remove([upload.storage_path]);
+      throw error;
+    }
     const finalPath = `published/${upload.id}.png`;
     const saved = await this.supabase.adminClient.storage
       .from(BUCKET)
