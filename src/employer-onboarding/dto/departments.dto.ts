@@ -1,4 +1,8 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ApiHideProperty,
+  ApiProperty,
+  ApiPropertyOptional,
+} from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -23,11 +27,7 @@ export class DepartmentDraftItemDto {
   @IsUUID()
   iconId?: string;
 
-  @ApiPropertyOptional({
-    maxLength: 100,
-    description:
-      'Server-issued draft identifier. Omit when creating a new row; the API returns it in the saved response.',
-  })
+  @ApiHideProperty()
   @IsOptional()
   @IsString()
   @MaxLength(100)
@@ -42,7 +42,12 @@ export class DepartmentDraftItemDto {
   @MaxLength(60)
   name!: string;
 
-  @ApiPropertyOptional({ nullable: true, maxLength: 250 })
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    maxLength: 250,
+    example: 'Engineering team',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(250)
