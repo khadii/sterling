@@ -16,6 +16,7 @@ import {
 import { IconQueryDto, IconUploadDto, UpdateIconDto } from './icon.dto';
 
 const BUCKET = 'department-icons';
+const PREVIEW_URL_TIMEOUT_MS = 5_000;
 interface IconRow {
   id: string;
   name: string;
@@ -247,14 +248,22 @@ export class DepartmentIconsService {
   private async serialize(row: IconRow) {
     let url: string | null = null;
     if (row.storage_path) {
-      const signed = await this.supabase.adminClient.storage
-        .from(BUCKET)
-        .createSignedUrl(row.storage_path, 3600);
-      if (signed.error || !signed.data)
-        throw new ServiceUnavailableException(
-          'Icon preview is temporarily unavailable',
-        );
-      url = signed.data.signedUrl;
+      const signed = await Promise.race([
+        this.supabase.adminClient.storage
+          .from(BUCKET)
+          .createSignedUrl(row.storage_path, 3600),
+        new Promise<{ data: null; error: Error }>((resolve) =>
+          setTimeout(
+            () =>
+              resolve({
+                data: null,
+                error: new Error('Icon preview URL timed out'),
+              }),
+            PREVIEW_URL_TIMEOUT_MS,
+          ),
+        ),
+      ]);
+      if (!signed.error && signed.data) url = signed.data.signedUrl;
     }
     return {
       id: row.id,

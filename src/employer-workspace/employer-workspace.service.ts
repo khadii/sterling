@@ -341,9 +341,7 @@ export class EmployerWorkspaceService {
   ) {
     const { data: member, error } = await this.supabase.adminClient
       .from('organization_members')
-      .select(
-        'organization:organizations(id,name), settings:organization_settings(timezone)',
-      )
+      .select('organization:organizations(id,name)')
       .eq('organization_id', organizationId)
       .eq('user_id', userId)
       .maybeSingle();
@@ -380,17 +378,27 @@ export class EmployerWorkspaceService {
       throw new ForbiddenException(
         `Organization permission required: ${permission}`,
       );
-    const row = member as unknown as {
-      organization: Row;
-      settings: Row | Row[];
-    };
-    const settings = Array.isArray(row.settings)
-      ? row.settings[0]
-      : row.settings;
-    const timezone = settings?.timezone;
+    const row = member as unknown as { organization: Row | Row[] };
+    const organization = Array.isArray(row.organization)
+      ? row.organization[0]
+      : row.organization;
+    if (!organization)
+      throw new ForbiddenException('Organization access is not permitted');
+    const { data: settings, error: settingsError } =
+      await this.supabase.adminClient
+        .from('organization_settings')
+        .select('timezone')
+        .eq('organization_id', organizationId)
+        .maybeSingle();
+    if (settingsError)
+      throw mapDatabaseError(settingsError, 'load organization settings');
+    const settingsRow = settings as unknown as { timezone?: string } | null;
     return {
-      organization: row.organization,
-      timezone: typeof timezone === 'string' ? timezone : 'UTC',
+      organization,
+      timezone:
+        settingsRow && typeof settingsRow.timezone === 'string'
+          ? settingsRow.timezone
+          : 'UTC',
     };
   }
 

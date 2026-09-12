@@ -37,7 +37,25 @@ export class AuthService {
     const { data, error } =
       await this.supabase.publicClient.auth.signInWithPassword(dto);
     if (error) throw mapAuthError(error, 'sign_in');
-    return data;
+    if (!data.user) return data;
+    const { data: assignments, error: rolesError } =
+      await this.supabase.adminClient
+        .from('user_roles')
+        .select('role_id')
+        .eq('user_id', data.user.id);
+    if (rolesError) throw mapDatabaseError(rolesError, 'load account roles');
+    const profile = await this.me({
+      id: data.user.id,
+      email: data.user.email,
+      roles: (assignments ?? []).map(
+        ({ role_id }: { role_id: string }) => role_id,
+      ),
+    });
+    return {
+      ...data,
+      ...profile,
+      user: { ...data.user, ...profile },
+    };
   }
 
   async me(user: AuthenticatedUser) {
