@@ -7,6 +7,8 @@ export function normalizeImageContentType(contentType: string): string {
   return normalized === 'image/jpg' ? 'image/jpeg' : normalized;
 }
 
+const MAX_DECODABLE_PIXELS = 16_000_000;
+
 /** Decode rather than trust filename/MIME. SVG is allowlisted before any renderer sees it. */
 export async function validateImage(
   input: Buffer,
@@ -30,7 +32,9 @@ export async function validateImage(
   }
   try {
     const image = sharp(body, {
-      limitInputPixels: maxWidth * maxHeight,
+      // Allow normal camera/design source sizes, but cap decompression work.
+      // The output is resized to the endpoint's maximum dimensions below.
+      limitInputPixels: MAX_DECODABLE_PIXELS,
       // Metadata/profile warnings are common in valid user-supplied images.
       // Decode errors still fail, but harmless warnings must not reject uploads.
       failOn: 'error',
@@ -44,17 +48,17 @@ export async function validateImage(
     };
     if (!expected[contentType] || metadata.format !== expected[contentType])
       throw new Error('type');
-    if (
-      !metadata.width ||
-      !metadata.height ||
-      metadata.width > maxWidth ||
-      metadata.height > maxHeight ||
-      (metadata.pages ?? 1) > 1
-    )
+    if (!metadata.width || !metadata.height || (metadata.pages ?? 1) > 1)
       throw new Error('dimensions');
     // No active SVG markup, embedded metadata, or animation is served to clients.
     const output = await image
       .rotate()
+      .resize({
+        width: maxWidth,
+        height: maxHeight,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
       .png()
       .toBuffer({ resolveWithObject: true });
     if (output.info.width > maxWidth || output.info.height > maxHeight)
@@ -62,7 +66,7 @@ export async function validateImage(
     return output.data;
   } catch {
     throw new BadRequestException(
-      `Invalid image: use a single-frame PNG, JPEG, GIF or SVG no larger than ${maxWidth} × ${maxHeight} pixels`,
+      `Invalid image: upload a valid single-frame PNG, JPEG, GIF or SVG under the size limit; it will be resized to ${maxWidth} × ${maxHeight} pixels`,
     );
   }
 }

@@ -33,10 +33,11 @@ describe('validateImage', () => {
       expect.any(Buffer),
     );
   });
-  it('rejects excessive dimensions', async () => {
-    await expect(
-      validateImage(await png(801, 400), 'image/png'),
-    ).rejects.toBeInstanceOf(BadRequestException);
+  it('resizes valid source images above the display limit', async () => {
+    const output = await validateImage(await png(801, 400), 'image/png');
+    const metadata = await sharp(output).metadata();
+    expect(metadata.width).toBe(800);
+    expect(metadata.height).toBe(400);
   });
   it('rejects content-type spoofing and corrupt files', async () => {
     await expect(
