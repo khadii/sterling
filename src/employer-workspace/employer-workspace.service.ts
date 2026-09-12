@@ -3,7 +3,6 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-  ServiceUnavailableException,
 } from '@nestjs/common';
 import { mapDatabaseError } from '../supabase/database-error.mapper';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -552,11 +551,9 @@ export class EmployerWorkspaceService {
         const signed = await this.supabase.adminClient.storage
           .from('department-icons')
           .createSignedUrl(icon.storage_path, 3600);
-        if (signed.error || !signed.data)
-          throw new ServiceUnavailableException(
-            'Department icon preview is temporarily unavailable',
-          );
-        url = signed.data.signedUrl;
+        // A missing preview must not make the whole dashboard unavailable.
+        // The icon catalogue endpoint still reports storage failures directly.
+        if (!signed.error && signed.data) url = signed.data.signedUrl;
       }
       iconResponse = { ...icon, url };
     }

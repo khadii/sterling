@@ -8,7 +8,10 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { validateImage } from '../common/images/validate-image';
+import {
+  normalizeImageContentType,
+  validateImage,
+} from '../common/images/validate-image';
 import * as countries from 'i18n-iso-countries';
 import { mapDatabaseError } from '../supabase/database-error.mapper';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -218,7 +221,9 @@ export class EmployerOnboardingService {
     const row = await this.getRow(userId);
     if (row.status === 'completed')
       throw new ConflictException('Completed onboarding cannot be edited');
-    const contentType = file.mimetype as LogoContentType;
+    const contentType = normalizeImageContentType(
+      file.mimetype,
+    ) as LogoContentType;
     if (!Object.values(LogoContentType).includes(contentType))
       throw new BadRequestException('Unsupported logo image type');
     if (!file.size || file.size > LOGO_MAX_SIZE)

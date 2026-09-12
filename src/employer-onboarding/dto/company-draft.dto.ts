@@ -35,7 +35,11 @@ export class CompanyDraftDto {
   @IsUUID()
   industryId?: string;
 
-  @ApiPropertyOptional({ nullable: true, example: 'https://huppr.com' })
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 'https://huppr.com',
+    description: 'Optional company website URL',
+  })
   @IsOptional()
   @ValidateIf((_object, value: unknown) => value !== null)
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })

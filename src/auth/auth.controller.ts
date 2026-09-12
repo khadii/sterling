@@ -158,7 +158,7 @@ export class AuthController {
   @ApiBearerAuth()
   @UseGuards(SupabaseAuthGuard)
   me(@Req() request: RequestWithUser) {
-    return request.user;
+    return this.auth.me(request.user);
   }
 
   @Post('complete-onboarding')

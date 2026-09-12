@@ -9,6 +9,7 @@ import { SignUpDto } from './dto/sign-up.dto';
 import { ConfirmEmailOtpDto } from './dto/confirm-email-otp.dto';
 import { UpdateEmailDto } from './dto/update-email.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
+import { AuthenticatedUser } from '../common/types/authenticated-user.type';
 
 @Injectable()
 export class AuthService {
@@ -37,6 +38,28 @@ export class AuthService {
       await this.supabase.publicClient.auth.signInWithPassword(dto);
     if (error) throw mapAuthError(error, 'sign_in');
     return data;
+  }
+
+  async me(user: AuthenticatedUser) {
+    const { data, error } = await this.supabase.adminClient
+      .from('employer_onboarding')
+      .select('status,organization_id,completed_at')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (error) throw mapDatabaseError(error, 'load onboarding status');
+    const onboarding = data as unknown as {
+      status?: string;
+      organization_id?: string | null;
+      completed_at?: string | null;
+    } | null;
+    const status = String(onboarding?.status ?? 'not_started');
+    return {
+      ...user,
+      onboardingComplete: status === 'completed',
+      onboardingStatus: status,
+      organizationId: onboarding?.organization_id ?? null,
+      onboardingCompletedAt: onboarding?.completed_at ?? null,
+    };
   }
 
   async refresh(refreshToken: string) {

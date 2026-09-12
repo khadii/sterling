@@ -2,6 +2,11 @@ import { BadRequestException } from '@nestjs/common';
 import sharp from 'sharp';
 import { safeSvg } from './safe-svg';
 
+export function normalizeImageContentType(contentType: string): string {
+  const normalized = contentType.split(';', 1)[0].trim().toLowerCase();
+  return normalized === 'image/jpg' ? 'image/jpeg' : normalized;
+}
+
 /** Decode rather than trust filename/MIME. SVG is allowlisted before any renderer sees it. */
 export async function validateImage(
   input: Buffer,
@@ -9,6 +14,7 @@ export async function validateImage(
   maxWidth = 800,
   maxHeight = 400,
 ): Promise<Buffer> {
+  contentType = normalizeImageContentType(contentType);
   if (!input.length || input.length > 5_242_880)
     throw new BadRequestException('Image must be between 1 byte and 5 MB');
   let body = input;

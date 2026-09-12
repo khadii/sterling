@@ -9,7 +9,10 @@ import { randomUUID } from 'node:crypto';
 import { SupabaseService } from '../supabase/supabase.service';
 import { mapDatabaseError } from '../supabase/database-error.mapper';
 import { UploadedFile } from '../common/types/uploaded-file.type';
-import { validateImage } from '../common/images/validate-image';
+import {
+  normalizeImageContentType,
+  validateImage,
+} from '../common/images/validate-image';
 import { IconQueryDto, IconUploadDto, UpdateIconDto } from './icon.dto';
 
 const BUCKET = 'department-icons';
@@ -91,7 +94,7 @@ export class DepartmentIconsService {
   }
 
   async upload(userId: string, name: string, file: UploadedFile) {
-    const contentType = file.mimetype;
+    const contentType = normalizeImageContentType(file.mimetype);
     if (
       !['image/png', 'image/jpeg', 'image/gif', 'image/svg+xml'].includes(
         contentType,

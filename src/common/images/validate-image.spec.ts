@@ -23,6 +23,16 @@ describe('validateImage', () => {
     const output = await validateImage(input, contentType, 256, 256);
     expect((await sharp(output).metadata()).format).toBe('png');
   });
+  it('accepts the common image/jpg MIME alias as JPEG', async () => {
+    const input = await sharp({
+      create: { width: 32, height: 32, channels: 4, background: '#123456' },
+    })
+      .jpeg()
+      .toBuffer();
+    await expect(validateImage(input, 'image/jpg', 256, 256)).resolves.toEqual(
+      expect.any(Buffer),
+    );
+  });
   it('rejects excessive dimensions', async () => {
     await expect(
       validateImage(await png(801, 400), 'image/png'),
