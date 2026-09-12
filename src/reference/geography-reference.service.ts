@@ -124,13 +124,9 @@ export class GeographyReferenceService {
           item.name.toLowerCase().includes(search),
       )
       .sort((a, b) => a.name.localeCompare(b.name));
-    const start = (query.page - 1) * query.limit;
     return {
-      items: all.slice(start, start + query.limit),
-      page: query.page,
-      limit: query.limit,
+      items: all,
       total: all.length,
-      hasMore: start + query.limit < all.length,
     };
   }
 

@@ -188,7 +188,7 @@ export class EmployerOnboardingController {
   @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @ApiOperation({ summary: 'Idempotently provision the employer workspace' })
   complete(@Req() request: RequestWithUser) {
-    return this.onboarding.complete(request.user.id);
+    return this.onboarding.complete(request.user.id, request.user.email);
   }
 
   @Get('summary')

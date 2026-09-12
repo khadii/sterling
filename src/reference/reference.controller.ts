@@ -50,7 +50,7 @@ export class ReferenceController {
   }
 
   @Get('countries')
-  @ApiOperation({ summary: 'Search and paginate countries' })
+  @ApiOperation({ summary: 'List or search all countries' })
   @ApiOkResponse({ type: CountriesResponseDto })
   countries(@Query() query: CountriesQueryDto) {
     return this.geography.countries(query);

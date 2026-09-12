@@ -15,6 +15,7 @@ export type AuthOperation =
   | 'refresh'
   | 'password_reset'
   | 'resend_confirmation'
+  | 'confirm_email_otp'
   | 'update_password'
   | 'update_email'
   | 'sign_out'
@@ -98,6 +99,9 @@ export function mapAuthError(
       return new ForbiddenException('Email address has not been confirmed');
     }
   }
+  if (operation === 'confirm_email_otp' && error.status === 401) {
+    return new BadRequestException('Invalid or expired confirmation code');
+  }
   if (
     operation === 'refresh' ||
     operation === 'update_password' ||
@@ -149,5 +153,7 @@ function publicValidationMessage(
   if (code === 'captcha_failed') return 'Captcha verification failed';
   if (operation === 'sign_up')
     return 'Unable to create account with the supplied details';
+  if (operation === 'confirm_email_otp')
+    return 'Invalid or expired confirmation code';
   return 'Invalid authentication request';
 }

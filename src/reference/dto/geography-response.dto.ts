@@ -12,10 +12,7 @@ export class CountryReferenceDto {
 
 export class CountriesResponseDto {
   @ApiProperty({ type: [CountryReferenceDto] }) items!: CountryReferenceDto[];
-  @ApiProperty() page!: number;
-  @ApiProperty() limit!: number;
   @ApiProperty() total!: number;
-  @ApiProperty() hasMore!: boolean;
 }
 
 export class TimezoneReferenceDto {

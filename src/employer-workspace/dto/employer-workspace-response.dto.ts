@@ -139,6 +139,11 @@ export class DepartmentIconResponseDto {
     string | null;
   @ApiPropertyOptional({ nullable: true, example: null }) storage_path!:
     string | null;
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Expiring signed URL for uploaded icons; null for built-ins',
+  })
+  url!: string | null;
 }
 
 export class DepartmentResponseDto {

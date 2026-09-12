@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { mapDatabaseError } from '../supabase/database-error.mapper';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -258,8 +259,8 @@ export class EmployerWorkspaceService {
     }
     const { data, error } = await request;
     if (error) throw mapDatabaseError(error, 'load departments');
-    const items = ((data ?? []) as Row[]).map((row) =>
-      this.departmentResponse(row),
+    const items = await Promise.all(
+      ((data ?? []) as Row[]).map((row) => this.departmentResponse(row)),
     );
     return {
       summary: {
@@ -293,7 +294,7 @@ export class EmployerWorkspaceService {
     if (error) throw mapDatabaseError(error, 'load department');
     if (!data) throw new NotFoundException('Department not found');
     return {
-      ...this.departmentResponse(data),
+      ...(await this.departmentResponse(data)),
       metrics: { headcount: null, openRoles: null, subteams: null },
       unavailableMetrics: ['headcount', 'openRoles', 'subteams', 'capacity'],
     };
@@ -542,7 +543,23 @@ export class EmployerWorkspaceService {
     };
   }
 
-  private departmentResponse(row: Row) {
+  private async departmentResponse(row: Row) {
+    const icon = row.icon as Row | null | undefined;
+    let iconResponse: Record<string, unknown> | null = null;
+    if (icon) {
+      let url: string | null = null;
+      if (typeof icon.storage_path === 'string' && icon.storage_path) {
+        const signed = await this.supabase.adminClient.storage
+          .from('department-icons')
+          .createSignedUrl(icon.storage_path, 3600);
+        if (signed.error || !signed.data)
+          throw new ServiceUnavailableException(
+            'Department icon preview is temporarily unavailable',
+          );
+        url = signed.data.signedUrl;
+      }
+      iconResponse = { ...icon, url };
+    }
     return {
       id: row.id,
       organizationId: row.organization_id,
@@ -550,7 +567,7 @@ export class EmployerWorkspaceService {
       description: row.description,
       displayOrder: row.display_order,
       archived: row.is_archived,
-      icon: row.icon,
+      icon: iconResponse,
       createdAt: row.created_at,
     };
   }

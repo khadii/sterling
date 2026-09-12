@@ -20,6 +20,7 @@ import { RequestWithUser } from '../common/types/request-with-user.type';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { AuthService } from './auth.service';
 import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
+import { ConfirmEmailOtpDto } from './dto/confirm-email-otp.dto';
 import { EmailDto } from './dto/email.dto';
 import { GoogleLoginFlowDto } from './dto/google-login-flow.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -99,6 +100,28 @@ export class AuthController {
   @Throttle({ default: { limit: 3, ttl: 60_000 } })
   resendConfirmation(@Body() dto: EmailDto) {
     return this.auth.resendConfirmation(dto.email);
+  }
+
+  @Post('confirm-email-otp')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Confirm a signup email with its Supabase six-digit OTP',
+    description:
+      'Uses the same one-time Supabase token as the confirmation link. A successful OTP verification confirms the email and returns a session.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Email confirmed; the Supabase user and session are returned',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'The code is malformed, invalid, expired, or has already been used',
+    type: ApiErrorDto,
+  })
+  confirmEmailOtp(@Body() dto: ConfirmEmailOtpDto) {
+    return this.auth.confirmEmailOtp(dto);
   }
 
   @Post('update-password')

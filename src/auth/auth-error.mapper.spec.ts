@@ -9,6 +9,8 @@ describe('mapAuthError', () => {
     ['email_not_confirmed', 400, 'sign_in', HttpStatus.FORBIDDEN],
     ['user_not_found', 404, 'sign_in', HttpStatus.UNAUTHORIZED],
     ['bad_jwt', 401, 'verify_token', HttpStatus.UNAUTHORIZED],
+    ['otp_expired', 400, 'confirm_email_otp', HttpStatus.BAD_REQUEST],
+    ['otp_expired', 401, 'confirm_email_otp', HttpStatus.BAD_REQUEST],
     ['over_request_rate_limit', 429, 'sign_up', HttpStatus.TOO_MANY_REQUESTS],
     ['unexpected_failure', 503, 'sign_up', HttpStatus.SERVICE_UNAVAILABLE],
   ])(
@@ -37,6 +39,14 @@ describe('mapAuthError', () => {
       'sign_in',
     );
     expect(mapped.message).toBe('Invalid email or password');
+  });
+
+  it('does not expose provider details for an invalid confirmation code', () => {
+    const mapped = mapAuthError(
+      new AuthError('Sensitive provider detail', 400, 'otp_expired'),
+      'confirm_email_otp',
+    );
+    expect(mapped.message).toBe('Invalid or expired confirmation code');
   });
 
   it('distinguishes a Supabase email quota from request throttling', () => {

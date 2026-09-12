@@ -6,6 +6,7 @@ import { mapDatabaseError } from '../supabase/database-error.mapper';
 import { isMissingAccountError, mapAuthError } from './auth-error.mapper';
 import { SignInDto } from './dto/sign-in.dto';
 import { SignUpDto } from './dto/sign-up.dto';
+import { ConfirmEmailOtpDto } from './dto/confirm-email-otp.dto';
 import { UpdateEmailDto } from './dto/update-email.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 
@@ -79,6 +80,21 @@ export class AuthService {
     return {
       message: 'If confirmation is required, a new email has been sent',
     };
+  }
+
+  /**
+   * Confirms a signup using the same Supabase-issued token as the email link.
+   * The confirmation email may expose the token as {{ .Token }} alongside its
+   * existing {{ .ConfirmationURL }}; either successful verification consumes it.
+   */
+  async confirmEmailOtp(dto: ConfirmEmailOtpDto) {
+    const { data, error } = await this.supabase.publicClient.auth.verifyOtp({
+      email: dto.email,
+      token: dto.token,
+      type: 'email',
+    });
+    if (error) throw mapAuthError(error, 'confirm_email_otp');
+    return data;
   }
 
   async updatePassword(accessToken: string, dto: UpdatePasswordDto) {
