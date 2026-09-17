@@ -2,9 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  Logger,
   NotFoundException,
-  Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
@@ -22,7 +20,6 @@ import { ConfirmLogoUploadDto, CreateLogoUploadDto } from './dto/logo.dto';
 import { WorkspaceSettingsDto } from './dto/workspace-settings.dto';
 import { LogoContentType } from './onboarding.enums';
 import { mapOnboardingDatabaseError } from './onboarding-error';
-import { MailService } from '../mail/mail.service';
 
 const LOGO_BUCKET = 'onboarding-logos';
 const LOGO_MAX_SIZE = 5_242_880;
@@ -73,12 +70,7 @@ interface LogoUploadRow {
 
 @Injectable()
 export class EmployerOnboardingService {
-  private readonly logger = new Logger(EmployerOnboardingService.name);
-
-  constructor(
-    private readonly supabase: SupabaseService,
-    @Optional() private readonly mail?: MailService,
-  ) {}
+  constructor(private readonly supabase: SupabaseService) {}
 
   async getState(userId: string) {
     return this.serializeState(await this.getRow(userId));
@@ -382,9 +374,7 @@ export class EmployerOnboardingService {
     };
   }
 
-  async complete(userId: string, email?: string) {
-    const before = await this.getRow(userId);
-    const wasAlreadyCompleted = before.status === 'completed';
+  async complete(userId: string) {
     const { data, error } = await this.supabase.adminClient.rpc(
       'provision_employer_workspace',
       { p_user_id: userId } as never,
@@ -392,27 +382,16 @@ export class EmployerOnboardingService {
     if (error) throw mapOnboardingDatabaseError(error);
     const organizationId = data as unknown as string;
     const summary = await this.getSummary(userId);
-    let welcomeEmailSent = false;
-    if (!wasAlreadyCompleted && email && this.mail) {
-      try {
-        await this.mail.send({
-          to: email,
-          subject: 'Your Sterling workspace is ready',
-          text: [
-            `Your workspace${summary.organization.name ? `, ${summary.organization.name},` : ''} has been created successfully.`,
-            '',
-            'You can now sign in and start using Sterling.',
-          ].join('\n'),
-          html: `<p>Your workspace${summary.organization.name ? `, <strong>${this.escapeHtml(summary.organization.name)}</strong>,` : ''} has been created successfully.</p><p>You can now sign in and start using Sterling.</p>`,
-        });
-        welcomeEmailSent = true;
-      } catch (mailError) {
-        this.logger.error(
-          'Workspace created, but the welcome email could not be sent',
-          mailError instanceof Error ? mailError.stack : undefined,
-        );
-      }
-    }
+    const { data: delivery, error: deliveryError } =
+      await this.supabase.adminClient
+        .from('notification_outbox')
+        .select('status')
+        .eq('dedupe_key', `welcome:${organizationId}:${userId}`)
+        .maybeSingle();
+    if (deliveryError)
+      throw mapDatabaseError(deliveryError, 'load welcome email status');
+    const emailStatus =
+      (delivery as { status: string } | null)?.status ?? 'not_queued';
     return {
       status: 'completed',
       progressPercentage: 100,
@@ -425,24 +404,12 @@ export class EmployerOnboardingService {
         organisationRolesProvisioned: true,
       },
       organizationId,
-      welcomeEmailSent,
+      welcomeEmailSent: emailStatus === 'sent',
+      welcomeEmailQueued: ['pending', 'processing'].includes(emailStatus),
+      welcomeEmailStatus: emailStatus,
       nextAction: 'dashboard',
       onboardingCompletedAt: summary.provisionedAt,
     };
-  }
-
-  private escapeHtml(value: string) {
-    return value.replace(
-      /[&<>'"]/g,
-      (character) =>
-        ({
-          '&': '&amp;',
-          '<': '&lt;',
-          '>': '&gt;',
-          "'": '&#39;',
-          '"': '&quot;',
-        })[character] ?? character,
-    );
   }
 
   async getSummary(userId: string) {

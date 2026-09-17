@@ -16,25 +16,35 @@ export class IndustryQueryDto {
   @MaxLength(100)
   search?: string;
 
-  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @ApiPropertyOptional({ type: 'integer', default: 1, minimum: 1 })
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page = 1;
+  page: number = 1;
 
-  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({
+    type: 'integer',
+    default: 20,
+    minimum: 1,
+    maximum: 100,
+  })
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
-  limit = 20;
+  limit: number = 20;
 }
 
 export class SuggestionQueryDto {
-  @ApiPropertyOptional({ default: 10, minimum: 1, maximum: 20 })
+  @ApiPropertyOptional({
+    type: 'integer',
+    default: 10,
+    minimum: 1,
+    maximum: 20,
+  })
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(20)
-  limit = 10;
+  limit: number = 10;
 }

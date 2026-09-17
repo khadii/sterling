@@ -8,6 +8,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { SupabaseService } from '../supabase/supabase.service';
 import { mapDatabaseError } from '../supabase/database-error.mapper';
+import { withRequestDeadline } from '../supabase/request-timeout';
 import { UploadedFile } from '../common/types/uploaded-file.type';
 import {
   normalizeImageContentType,
@@ -49,11 +50,16 @@ export class DepartmentIconsService {
       .order('id')
       .range(offset, offset + query.limit - 1);
     if (!includeInactive) request = request.eq('is_active', true);
-    const { data, error, count } = await request;
+    const { data, error, count } = await withRequestDeadline(request);
     if (error) throw mapDatabaseError(error, 'list department icons');
+    const rows = (data ?? []) as IconRow[];
+    const urls = await this.previewUrls(rows);
     return {
-      items: await Promise.all(
-        (data as IconRow[]).map((row) => this.serialize(row)),
+      items: rows.map((row) =>
+        this.response(
+          row,
+          row.storage_path ? (urls.get(row.storage_path) ?? null) : null,
+        ),
       ),
       page: query.page,
       limit: query.limit,
@@ -246,30 +252,51 @@ export class DepartmentIconsService {
   }
 
   private async serialize(row: IconRow) {
-    let url: string | null = null;
-    if (row.storage_path) {
-      const signed = await Promise.race([
+    const urls = await this.previewUrls([row]);
+    return this.response(
+      row,
+      row.storage_path ? (urls.get(row.storage_path) ?? null) : null,
+    );
+  }
+
+  private async previewUrls(rows: IconRow[]): Promise<Map<string, string>> {
+    const paths = [
+      ...new Set(
+        rows.flatMap((row) => (row.storage_path ? [row.storage_path] : [])),
+      ),
+    ];
+    const urls = new Map<string, string>();
+    if (!paths.length) return urls;
+    try {
+      const signed = await withRequestDeadline(
         this.supabase.adminClient.storage
           .from(BUCKET)
-          .createSignedUrl(row.storage_path, 3600),
-        new Promise<{ data: null; error: Error }>((resolve) =>
-          setTimeout(
-            () =>
-              resolve({
-                data: null,
-                error: new Error('Icon preview URL timed out'),
-              }),
-            PREVIEW_URL_TIMEOUT_MS,
-          ),
-        ),
-      ]);
-      if (!signed.error && signed.data) url = signed.data.signedUrl;
+          .createSignedUrls(paths, 3600),
+        PREVIEW_URL_TIMEOUT_MS,
+      );
+      if (!signed.error)
+        for (const item of signed.data ?? []) {
+          if (!item.error && item.path && item.signedUrl)
+            urls.set(item.path, item.signedUrl);
+        }
+    } catch {
+      // Catalogue data is still usable when preview storage is unavailable.
     }
+    return urls;
+  }
+
+  private response(row: IconRow, url: string | null) {
     return {
       id: row.id,
       name: row.name,
       active: row.is_active,
       builtinKey: row.builtin_key,
+      imageStatus: row.storage_path
+        ? url
+          ? 'available'
+          : 'temporarily_unavailable'
+        : 'builtin',
+      retryable: Boolean(row.storage_path && !url),
       url,
     };
   }

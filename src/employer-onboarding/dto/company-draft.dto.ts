@@ -36,6 +36,7 @@ export class CompanyDraftDto {
   industryId?: string;
 
   @ApiPropertyOptional({
+    type: String,
     nullable: true,
     example: 'https://huppr.com',
     description: 'Optional company website URL',

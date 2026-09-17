@@ -7,6 +7,7 @@ import {
 import { RequestWithUser } from '../common/types/request-with-user.type';
 import { mapDatabaseError } from '../supabase/database-error.mapper';
 import { SupabaseService } from '../supabase/supabase.service';
+import { withRequestDeadline } from '../supabase/request-timeout';
 import { mapAuthError } from './auth-error.mapper';
 
 @Injectable()
@@ -19,17 +20,19 @@ export class SupabaseAuthGuard implements CanActivate {
     if (scheme?.toLowerCase() !== 'bearer' || !token)
       throw new UnauthorizedException('A valid bearer token is required');
 
-    const { data, error } =
-      await this.supabase.publicClient.auth.getUser(token);
+    const { data, error } = await withRequestDeadline(
+      this.supabase.publicClient.auth.getUser(token),
+    );
     if (error) throw mapAuthError(error, 'verify_token');
     if (!data.user)
       throw new UnauthorizedException('Invalid or expired access token');
 
-    const { data: assignments, error: rolesError } =
-      await this.supabase.adminClient
+    const { data: assignments, error: rolesError } = await withRequestDeadline(
+      this.supabase.adminClient
         .from('user_roles')
         .select('role_id')
-        .eq('user_id', data.user.id);
+        .eq('user_id', data.user.id),
+    );
     if (rolesError) throw mapDatabaseError(rolesError, 'load account roles');
 
     request.user = {

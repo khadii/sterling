@@ -1,3 +1,4 @@
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import {
   Body,
   Controller,
@@ -6,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Patch,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -64,6 +66,17 @@ export class AuthController {
       nextStep: 'GET /api/v1/auth/me',
       onboardingWhenRolesAreEmpty: 'POST /api/v1/auth/complete-onboarding',
     };
+  }
+
+  @Patch('profile')
+  @UseGuards(SupabaseAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update your display name and HTTPS avatar URL' })
+  updateProfile(
+    @Req() request: RequestWithUser,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.auth.updateProfile(request.user.id, dto);
   }
 
   @Post('sign-up')

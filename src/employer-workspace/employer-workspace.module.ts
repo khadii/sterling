@@ -7,5 +7,6 @@ import { EmployerWorkspaceService } from './employer-workspace.service';
   imports: [AuthModule],
   controllers: [EmployerWorkspaceController],
   providers: [EmployerWorkspaceService],
+  exports: [EmployerWorkspaceService],
 })
 export class EmployerWorkspaceModule {}

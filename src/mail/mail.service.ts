@@ -44,32 +44,30 @@ export class MailService implements MailProvider {
     }
   }
 
-  async send(options: SendMailOptions): Promise<{ messageId: string }> {
+  async send(
+    options: SendMailOptions,
+    retries = this.maxRetries,
+  ): Promise<{ messageId: string }> {
     if (!this.transporter)
       throw new ServiceUnavailableException(
         'Application mail provider is not configured',
       );
-    let lastError: unknown;
-    for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
       try {
         const result = await this.transporter.sendMail({
           from: this.config.getOrThrow<string>('MAIL_FROM'),
           ...options,
         });
         return { messageId: String(result.messageId) };
-      } catch (error) {
-        lastError = error;
+      } catch {
         this.logger.warn(`Mail delivery attempt ${attempt + 1} failed`);
-        if (attempt < this.maxRetries)
+        if (attempt < retries)
           await new Promise((resolve) =>
             setTimeout(resolve, 250 * 2 ** attempt),
           );
       }
     }
-    this.logger.error(
-      'Mail delivery failed after all retry attempts',
-      lastError instanceof Error ? lastError.stack : undefined,
-    );
+    this.logger.error('Mail delivery failed after all retry attempts');
     throw new ServiceUnavailableException(
       'Application mail provider is temporarily unavailable',
     );

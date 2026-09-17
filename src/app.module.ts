@@ -1,3 +1,4 @@
+import { NotificationModule } from './notifications/notification.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
@@ -11,6 +12,7 @@ import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
 import { ReferenceModule } from './reference/reference.module';
 import { SupabaseModule } from './supabase/supabase.module';
+import { WorkflowModule } from './organization-workflow/workflow.module';
 
 const productionFrontendUrl = (value: string, helpers: Joi.CustomHelpers) => {
   const hostname = new URL(value).hostname.toLowerCase();
@@ -81,6 +83,15 @@ const productionFrontendUrl = (value: string, helpers: Joi.CustomHelpers) => {
             .required(),
           otherwise: Joi.string().uri().required(),
         }),
+        CRON_SECRET: Joi.string().min(32).optional(),
+        NOTIFICATION_WORKER_SECRET: Joi.string().min(32).optional(),
+        NOTIFICATION_FRONTEND_URL: Joi.when('NODE_ENV', {
+          is: 'production',
+          then: Joi.string()
+            .uri({ scheme: ['https'] })
+            .custom(productionFrontendUrl),
+          otherwise: Joi.string().uri(),
+        }).optional(),
         SMTP_HOST: Joi.string().allow('').optional(),
         SMTP_PORT: Joi.number().port().default(587),
         SMTP_SECURE: Joi.boolean().default(false),
@@ -106,8 +117,10 @@ const productionFrontendUrl = (value: string, helpers: Joi.CustomHelpers) => {
     DepartmentIconsModule,
     EmployerOnboardingModule,
     EmployerWorkspaceModule,
+    WorkflowModule,
     ReferenceModule,
     MailModule,
+    NotificationModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

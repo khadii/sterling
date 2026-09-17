@@ -1,0 +1,40 @@
+begin;
+do $$
+#variable_conflict use_variable
+declare actor uuid:=gen_random_uuid(); member uuid:=gen_random_uuid(); guest uuid:=gen_random_uuid(); org uuid; owner_role uuid; dep uuid; dest uuid; role_id uuid; team_id uuid; result jsonb; version integer; snapshot jsonb;
+begin
+ insert into auth.users(id,email,email_confirmed_at) values(actor,'owner@contract.invalid',now()),(member,'member@contract.invalid',now()),(guest,'guest@contract.invalid',now());
+ insert into organizations(name,industry_id,company_size,created_by) values('Contract',(select id from industries limit 1),'1_10',actor) returning id into org;
+ insert into organization_members values(org,actor,now()),(org,member,now());
+ insert into organization_roles(organization_id,key,name,description) values(org,'organisation_owner','Owner','Owner') returning id into owner_role;
+ insert into organization_role_permissions select owner_role,id from permissions where id in ('members.invite','departments.manage','workspace.view') on conflict do nothing;
+ insert into organization_member_roles(organization_id,user_id,organization_role_id) values(org,actor,owner_role);
+ insert into departments(organization_id,name) values(org,'Engineering') returning id into dep;
+ insert into departments(organization_id,name) values(org,'Product') returning id into dest;
+ set local role service_role;
+ result:=set_department_members(actor,org,dep,array[member],0);
+ if (result->>'membershipRevision')::integer<>1 then raise exception 'Revision not incremented'; end if;
+ begin perform set_department_members(actor,org,dep,'{}',0);raise exception 'Stale overwrite accepted';exception when serialization_failure then null;end;
+ perform change_workspace_member(actor,org,'department',dep,actor,true);
+ if (select count(*) from organization_department_members where department_id=dep)<>2 then raise exception 'Delta lost another member'; end if;
+ perform transfer_department_member(actor,org,member,dep,dest);
+ if exists(select 1 from organization_department_members where department_id=dep and user_id=member) or not exists(select 1 from organization_department_members where department_id=dest and user_id=member) then raise exception 'Transfer failed'; end if;
+ begin perform transfer_department_member(actor,org,member,dest,gen_random_uuid());raise exception 'Bad destination accepted';exception when no_data_found then null;end;
+ if not exists(select 1 from organization_department_members where department_id=dest and user_id=member) then raise exception 'Failed transfer lost membership'; end if;
+ snapshot:=workspace_membership_snapshot(actor,org,'department',dest);
+ if jsonb_array_length(snapshot->'memberIds')<>1 then raise exception 'Snapshot missing';end if;
+ result:=workflow_mutate(actor,org,'role.save',null,'{"name":"Engineer","status":"active","permissionIds":["workspace.view"]}');role_id:=(result->>'id')::uuid;version:=(result->>'revision')::integer;
+ result:=workflow_mutate(actor,org,'role.permissions',role_id,jsonb_build_object('permissionIds',array['workspace.view','teams.view'],'expectedRevision',version));
+ begin perform workflow_mutate(actor,org,'role.permissions',role_id,jsonb_build_object('permissionIds','[]'::jsonb,'expectedRevision',version));raise exception 'Stale grant overwrite';exception when serialization_failure then null;end;
+ result:=workflow_mutate(actor,org,'team.save',null,jsonb_build_object('name','Backend','departmentId',dep,'memberIds',array[member]));team_id:=(result->>'id')::uuid;
+ snapshot:=workspace_membership_snapshot(actor,org,'team',team_id);version:=(snapshot->>'membership_revision')::integer;
+ perform change_workspace_member(actor,org,'team',team_id,actor,true);
+ begin perform workflow_mutate(actor,org,'team.members',team_id,jsonb_build_object('memberIds','[]'::jsonb,'expectedRevision',version));raise exception 'Stale team overwrite';exception when serialization_failure then null;end;
+ result:=create_organization_invitation(actor,org,'guest@contract.invalid',array[role_id],dep,'contract-token-hash','opaque-test-token');
+ perform accept_organization_invitation(guest,'contract-token-hash');
+ if not exists(select 1 from organization_department_members where department_id=dep and user_id=guest) then raise exception 'Invitation broke with revised department function';end if;
+ if has_function_privilege('authenticated','public.change_workspace_member(uuid,uuid,text,uuid,uuid,boolean)','execute') then raise exception 'Service RPC exposed';end if;
+ begin perform change_workspace_member(guest,org,'department',dep,actor,false);raise exception 'Unauthorized mutation';exception when insufficient_privilege then null;end;
+ raise notice 'PASS: optimistic revisions, atomic deltas/transfers, snapshot reads, invited-member provisioning and authorization';
+end $$;
+rollback;

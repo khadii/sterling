@@ -20,13 +20,15 @@ import {
 } from 'class-validator';
 
 export class OrganizationQueryDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     format: 'uuid',
-    example: '8a53bff5-a952-4ad7-b466-730659020a8e',
-    description: 'Organization selected in the workspace switcher',
+    deprecated: true,
+    description:
+      'Automatically resolved from your account. Use X-Organization-Id only for multiple memberships; retained for compatibility.',
   })
+  @IsOptional()
   @IsUUID()
-  organizationId!: string;
+  organizationId?: string;
 }
 
 export enum ActivityCategory {
@@ -64,13 +66,18 @@ export class ActivityQueryDto extends OrganizationQueryDto {
   @IsOptional()
   @IsString()
   cursor?: string;
-  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({
+    type: 'integer',
+    default: 20,
+    minimum: 1,
+    maximum: 100,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
-  limit = 20;
+  limit: number = 20;
 }
 
 export enum CalendarEventKind {
@@ -134,16 +141,19 @@ export class EventAttendeeDto {
   })
   @IsOptional()
   @IsEnum(AttendeeResponse)
-  response = AttendeeResponse.PENDING;
+  response: AttendeeResponse = AttendeeResponse.PENDING;
 }
 
 export class CreateCalendarEventDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     format: 'uuid',
-    example: '8a53bff5-a952-4ad7-b466-730659020a8e',
+    deprecated: true,
+    description:
+      'Automatically resolved from your account. Use X-Organization-Id only for multiple memberships; retained for compatibility.',
   })
+  @IsOptional()
   @IsUUID()
-  organizationId!: string;
+  organizationId?: string;
   @ApiProperty({
     enum: CalendarEventKind,
     example: CalendarEventKind.TEAM_MEETING,
@@ -172,10 +182,10 @@ export class CreateCalendarEventDto {
   @ApiProperty({ example: 'Africa/Lagos' })
   @IsTimeZone()
   timezone!: string;
-  @ApiPropertyOptional({ default: false })
+  @ApiPropertyOptional({ type: Boolean, default: false })
   @IsOptional()
   @IsBoolean()
-  allDay = false;
+  allDay: boolean = false;
   @ApiPropertyOptional({ example: 'Meeting Room A', maxLength: 300 })
   @IsOptional()
   @IsString()
@@ -196,12 +206,15 @@ export class CreateCalendarEventDto {
 }
 
 export class UpdateCalendarEventDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     format: 'uuid',
-    example: '8a53bff5-a952-4ad7-b466-730659020a8e',
+    deprecated: true,
+    description:
+      'Automatically resolved from your account. Use X-Organization-Id only for multiple memberships; retained for compatibility.',
   })
+  @IsOptional()
   @IsUUID()
-  organizationId!: string;
+  organizationId?: string;
   @ApiPropertyOptional({ enum: CalendarEventKind })
   @IsOptional()
   @IsEnum(CalendarEventKind)
@@ -257,12 +270,15 @@ export class UpdateCalendarEventDto {
 }
 
 export class CreateDepartmentDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     format: 'uuid',
-    example: '8a53bff5-a952-4ad7-b466-730659020a8e',
+    deprecated: true,
+    description:
+      'Automatically resolved from your account. Use X-Organization-Id only for multiple memberships; retained for compatibility.',
   })
+  @IsOptional()
   @IsUUID()
-  organizationId!: string;
+  organizationId?: string;
   @ApiProperty({ example: 'Engineering', minLength: 2, maxLength: 60 })
   @IsString()
   @MinLength(2)
@@ -294,7 +310,7 @@ export class DepartmentQueryDto extends OrganizationQueryDto {
   @IsString()
   @MaxLength(100)
   search?: string;
-  @ApiPropertyOptional({ default: false })
+  @ApiPropertyOptional({ type: Boolean, default: false })
   @IsOptional()
   @Transform(({ value }: { value: unknown }) =>
     value === true || value === 'true'
@@ -304,5 +320,5 @@ export class DepartmentQueryDto extends OrganizationQueryDto {
         : value,
   )
   @IsBoolean()
-  includeArchived = false;
+  includeArchived: boolean = false;
 }

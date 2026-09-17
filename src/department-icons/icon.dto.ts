@@ -48,28 +48,38 @@ export class UpdateIconDto {
   @ApiPropertyOptional() @IsOptional() @IsBoolean() active?: boolean;
 }
 export class IconQueryDto {
-  @ApiPropertyOptional({ default: 1 })
+  @ApiPropertyOptional({ type: 'integer', default: 1, minimum: 1 })
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page = 1;
-  @ApiPropertyOptional({ default: 50, maximum: 100 })
+  page: number = 1;
+  @ApiPropertyOptional({
+    type: 'integer',
+    default: 50,
+    minimum: 1,
+    maximum: 100,
+  })
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
-  limit = 50;
+  limit: number = 50;
 }
 export class IconResponseDto {
+  @ApiProperty({ enum: ['builtin', 'available', 'temporarily_unavailable'] })
+  imageStatus!: string;
+  @ApiProperty({ type: Boolean }) retryable!: boolean;
   @ApiProperty() id!: string;
   @ApiProperty() name!: string;
   @ApiProperty() active!: boolean;
   @ApiPropertyOptional({
+    type: String,
     nullable: true,
     description: 'Built-in frontend icon key, or null for uploaded icons',
   })
   builtinKey!: string | null;
   @ApiPropertyOptional({
+    type: String,
     nullable: true,
     description: 'Private image URL, expires after one hour',
   })

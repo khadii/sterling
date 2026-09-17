@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { RequestWithUser } from '../common/types/request-with-user.type';
+import { withRequestDeadline } from '../supabase/request-timeout';
 import { mapDatabaseError } from '../supabase/database-error.mapper';
 
 @Injectable()
@@ -18,12 +19,14 @@ export class PlatformIconGuard implements CanActivate {
       [];
     if (!roles.length)
       throw new ForbiddenException('Platform administrator access required');
-    const { data, error } = await this.supabase.adminClient
-      .from('role_permissions')
-      .select('role_id')
-      .in('role_id', roles)
-      .eq('permission_id', 'department_icons.manage')
-      .limit(1);
+    const { data, error } = await withRequestDeadline(
+      this.supabase.adminClient
+        .from('role_permissions')
+        .select('role_id')
+        .in('role_id', roles)
+        .eq('permission_id', 'department_icons.manage')
+        .limit(1),
+    );
     if (error) throw mapDatabaseError(error, 'check icon permissions');
     if (!data?.length)
       throw new ForbiddenException(

@@ -30,11 +30,20 @@ export class ActivityResponseDto {
   category!: string;
   @ApiProperty({ example: 'calendar_event_created' }) kind!: string;
   @ApiProperty({ example: 'Weekly planning' }) title!: string;
-  @ApiPropertyOptional({ nullable: true, example: 'Calendar event created' })
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    example: 'Calendar event created',
+  })
   summary!: string | null;
   @ApiProperty({ format: 'date-time', example: '2026-09-04T11:45:00Z' })
   occurredAt!: string;
-  @ApiPropertyOptional({ format: 'uuid', nullable: true, example: USER_ID })
+  @ApiPropertyOptional({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    example: USER_ID,
+  })
   actorId!: string | null;
   @ApiPropertyOptional({ type: ActivitySubjectResponseDto, nullable: true })
   subject!: ActivitySubjectResponseDto | null;
@@ -46,6 +55,7 @@ export class ActivityResponseDto {
 export class ActivityListResponseDto {
   @ApiProperty({ type: [ActivityResponseDto] }) items!: ActivityResponseDto[];
   @ApiPropertyOptional({
+    type: String,
     nullable: true,
     example:
       'eyJvY2N1cnJlZEF0IjoiMjAyNi0wOS0wNFQxMTo0NTowMFoiLCJpZCI6ImM2YjNiOTBiLTcyZjEtNDY0Zi04MjE1LTIxNTNhODhkZTEzYSJ9',
@@ -73,10 +83,16 @@ export class CalendarEventResponseDto {
     example: 'manual',
   })
   source!: string;
-  @ApiPropertyOptional({ format: 'uuid', nullable: true, example: null })
+  @ApiPropertyOptional({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    example: null,
+  })
   sourceId!: string | null;
   @ApiProperty({ example: 'Weekly planning' }) title!: string;
   @ApiPropertyOptional({
+    type: String,
     nullable: true,
     example: 'Review priorities for the coming week.',
   })
@@ -87,9 +103,14 @@ export class CalendarEventResponseDto {
   endsAt!: string;
   @ApiProperty({ example: 'Africa/Lagos' }) timezone!: string;
   @ApiProperty({ example: false }) allDay!: boolean;
-  @ApiPropertyOptional({ nullable: true, example: 'Meeting Room A' })
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    example: 'Meeting Room A',
+  })
   location!: string | null;
   @ApiPropertyOptional({
+    type: String,
     format: 'uri',
     nullable: true,
     example: 'https://meet.example.com/weekly-planning',
@@ -129,17 +150,20 @@ export class CalendarSummaryResponseDto {
 }
 
 export class DepartmentIconResponseDto {
+  @ApiProperty({ enum: ['builtin', 'available', 'temporarily_unavailable'] })
+  imageStatus!: string;
+  @ApiProperty({ type: Boolean }) retryable!: boolean;
   @ApiProperty({
     format: 'uuid',
     example: '88bf5704-f2da-47d0-b826-b601e00711bf',
   })
   id!: string;
   @ApiProperty({ example: 'Engineering' }) name!: string;
-  @ApiPropertyOptional({ nullable: true, example: 'code' }) builtin_key!:
-    string | null;
-  @ApiPropertyOptional({ nullable: true, example: null }) storage_path!:
-    string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, example: 'code' })
+  builtinKey!: string | null;
+
   @ApiPropertyOptional({
+    type: String,
     nullable: true,
     description: 'Expiring signed URL for uploaded icons; null for built-ins',
   })
@@ -147,11 +171,13 @@ export class DepartmentIconResponseDto {
 }
 
 export class DepartmentResponseDto {
+  @ApiProperty({ type: 'integer' }) membershipRevision!: number;
   @ApiProperty({ format: 'uuid', example: DEPARTMENT_ID }) id!: string;
   @ApiProperty({ format: 'uuid', example: ORGANIZATION_ID })
   organizationId!: string;
   @ApiProperty({ example: 'Engineering' }) name!: string;
   @ApiPropertyOptional({
+    type: String,
     nullable: true,
     example: 'Product development and infrastructure.',
   })
@@ -166,9 +192,10 @@ export class DepartmentResponseDto {
 
 export class DepartmentSummaryResponseDto {
   @ApiProperty({ example: 3 }) totalDepartments!: number;
-  @ApiProperty({ nullable: true, example: null }) totalHeadcount!:
+  @ApiProperty({ type: Number, nullable: true, example: null })
+  totalHeadcount!: number | null;
+  @ApiProperty({ type: Number, nullable: true, example: null }) totalSubteams!:
     number | null;
-  @ApiProperty({ nullable: true, example: null }) totalSubteams!: number | null;
 }
 
 export class DepartmentListResponseDto {
@@ -184,9 +211,12 @@ export class DepartmentListResponseDto {
 }
 
 export class DepartmentMetricsResponseDto {
-  @ApiProperty({ nullable: true, example: null }) headcount!: number | null;
-  @ApiProperty({ nullable: true, example: null }) openRoles!: number | null;
-  @ApiProperty({ nullable: true, example: null }) subteams!: number | null;
+  @ApiProperty({ type: Number, nullable: true, example: null }) headcount!:
+    number | null;
+  @ApiProperty({ type: Number, nullable: true, example: null }) openRoles!:
+    number | null;
+  @ApiProperty({ type: Number, nullable: true, example: null }) subteams!:
+    number | null;
 }
 
 export class DepartmentDetailResponseDto extends DepartmentResponseDto {
@@ -201,9 +231,12 @@ export class DepartmentDetailResponseDto extends DepartmentResponseDto {
 
 export class DashboardSummaryResponseDto {
   @ApiProperty({ example: 3 }) departments!: number;
-  @ApiProperty({ nullable: true, example: null }) headcount!: number | null;
-  @ApiProperty({ nullable: true, example: null }) openRoles!: number | null;
-  @ApiProperty({ nullable: true, example: null }) onLeaveToday!: number | null;
+  @ApiProperty({ type: Number, nullable: true, example: null }) headcount!:
+    number | null;
+  @ApiProperty({ type: Number, nullable: true, example: null }) openRoles!:
+    number | null;
+  @ApiProperty({ type: Number, nullable: true, example: null }) onLeaveToday!:
+    number | null;
 }
 
 export class EmployerDashboardResponseDto {

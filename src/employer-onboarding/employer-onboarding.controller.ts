@@ -186,9 +186,13 @@ export class EmployerOnboardingController {
   @Post('complete')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 3, ttl: 60_000 } })
-  @ApiOperation({ summary: 'Idempotently provision the employer workspace' })
+  @ApiOperation({
+    summary: 'Idempotently provision the employer workspace',
+    description:
+      'Queues a durable welcome email on first completion. welcomeEmailQueued indicates a new queue entry; welcomeEmailSent remains false because delivery is asynchronous.',
+  })
   complete(@Req() request: RequestWithUser) {
-    return this.onboarding.complete(request.user.id, request.user.email);
+    return this.onboarding.complete(request.user.id);
   }
 
   @Get('summary')

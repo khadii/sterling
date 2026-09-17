@@ -3,10 +3,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class CountryReferenceDto {
   @ApiProperty({ example: 'NG' }) code!: string;
   @ApiProperty({ example: 'Nigeria' }) name!: string;
-  @ApiPropertyOptional({ nullable: true, example: '+234' }) phoneCode?:
-    string | null;
-  @ApiPropertyOptional({ nullable: true, example: 'NGN' }) currency?:
-    string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, example: '+234' })
+  phoneCode?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, example: 'NGN' })
+  currency?: string | null;
   @ApiProperty({ example: '🇳🇬' }) flag!: string;
 }
 
@@ -19,8 +19,8 @@ export class TimezoneReferenceDto {
   @ApiProperty({ example: 'Africa/Lagos' }) name!: string;
   @ApiProperty({ example: '+01:00' }) offset!: string;
   @ApiProperty({ example: 'GMT+1' }) abbr!: string;
-  @ApiPropertyOptional({ nullable: true, example: 'NG' }) countryCode!:
-    string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, example: 'NG' })
+  countryCode!: string | null;
 }
 
 export class TimezonesResponseDto {

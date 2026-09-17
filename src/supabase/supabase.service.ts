@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient } from '@supabase/supabase-js';
+import { supabaseFetch } from './request-timeout';
 
 type AppSupabaseClient = ReturnType<typeof createClient>;
 
@@ -19,11 +20,14 @@ export class SupabaseService {
       autoRefreshToken: false,
       detectSessionInUrl: false,
     };
-    this.publicClient = createClient(this.url, this.publishableKey, { auth });
+    this.publicClient = createClient(this.url, this.publishableKey, {
+      auth,
+      global: { fetch: supabaseFetch },
+    });
     this.adminClient = createClient(
       this.url,
       config.getOrThrow<string>('SUPABASE_SECRET_KEY'),
-      { auth },
+      { auth, global: { fetch: supabaseFetch } },
     );
   }
 
@@ -34,7 +38,10 @@ export class SupabaseService {
         autoRefreshToken: false,
         detectSessionInUrl: false,
       },
-      global: { headers: { Authorization: `Bearer ${accessToken}` } },
+      global: {
+        fetch: supabaseFetch,
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
     });
   }
 }

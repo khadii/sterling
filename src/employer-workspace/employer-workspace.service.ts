@@ -1,3 +1,5 @@
+import { withRequestDeadline } from '../supabase/request-timeout';
+import { resolveOrganization } from '../organization-context/resolve-organization';
 import {
   BadRequestException,
   ForbiddenException,
@@ -16,11 +18,17 @@ import {
   UpdateCalendarEventDto,
 } from './dto/employer-workspace.dto';
 
+type Resolved<T> = T & { organizationId: string };
+
 type Row = Record<string, unknown>;
 
 @Injectable()
 export class EmployerWorkspaceService {
   constructor(private readonly supabase: SupabaseService) {}
+
+  resolveOrganization(userId: string, header?: string, legacy?: string) {
+    return resolveOrganization(this.supabase, userId, header, legacy);
+  }
 
   async dashboard(userId: string, organizationId: string) {
     const membership = await this.requireAccess(
@@ -37,7 +45,9 @@ export class EmployerWorkspaceService {
         from: now.toISOString(),
         to: inSevenDays.toISOString(),
       }),
-      this.departments(userId, { organizationId } as DepartmentQueryDto),
+      this.departments(userId, {
+        organizationId,
+      } as Resolved<DepartmentQueryDto>),
     ]);
     return {
       organization: membership.organization,
@@ -56,7 +66,7 @@ export class EmployerWorkspaceService {
     };
   }
 
-  async activities(userId: string, query: ActivityQueryDto) {
+  async activities(userId: string, query: Resolved<ActivityQueryDto>) {
     await this.requireAccess(userId, query.organizationId, 'activity.view');
     let request = this.supabase.adminClient
       .from('organization_activities')
@@ -93,7 +103,10 @@ export class EmployerWorkspaceService {
     };
   }
 
-  async calendarSummary(userId: string, query: CalendarSummaryQueryDto) {
+  async calendarSummary(
+    userId: string,
+    query: Resolved<CalendarSummaryQueryDto>,
+  ) {
     const membership = await this.requireAccess(
       userId,
       query.organizationId,
@@ -122,7 +135,7 @@ export class EmployerWorkspaceService {
     return { date: localDate, timezone: membership.timezone, counts };
   }
 
-  async calendarEvents(userId: string, query: CalendarQueryDto) {
+  async calendarEvents(userId: string, query: Resolved<CalendarQueryDto>) {
     await this.requireAccess(userId, query.organizationId, 'calendar.view');
     this.assertDateRange(query.from, query.to, 370);
     let request = this.supabase.adminClient
@@ -146,7 +159,10 @@ export class EmployerWorkspaceService {
     return this.eventResponse(row);
   }
 
-  async createCalendarEvent(userId: string, dto: CreateCalendarEventDto) {
+  async createCalendarEvent(
+    userId: string,
+    dto: Resolved<CreateCalendarEventDto>,
+  ) {
     await this.requireAccess(userId, dto.organizationId, 'calendar.manage');
     this.assertDateRange(dto.startsAt, dto.endsAt, 366);
     await this.requireAttendeeMembership(
@@ -180,7 +196,7 @@ export class EmployerWorkspaceService {
   async updateCalendarEvent(
     userId: string,
     eventId: string,
-    dto: UpdateCalendarEventDto,
+    dto: Resolved<UpdateCalendarEventDto>,
   ) {
     await this.requireAccess(userId, dto.organizationId, 'calendar.manage');
     const existing = await this.getEvent(eventId, dto.organizationId);
@@ -243,7 +259,7 @@ export class EmployerWorkspaceService {
     if (error) throw mapDatabaseError(error, 'delete calendar event');
   }
 
-  async departments(userId: string, query: DepartmentQueryDto) {
+  async departments(userId: string, query: Resolved<DepartmentQueryDto>) {
     await this.requireAccess(userId, query.organizationId, 'workspace.view');
     let request = this.supabase.adminClient
       .from('departments')
@@ -299,7 +315,7 @@ export class EmployerWorkspaceService {
     };
   }
 
-  async createDepartment(userId: string, dto: CreateDepartmentDto) {
+  async createDepartment(userId: string, dto: Resolved<CreateDepartmentDto>) {
     await this.requireAccess(userId, dto.organizationId, 'departments.manage');
     let iconId = dto.iconId;
     if (iconId) {
@@ -348,33 +364,15 @@ export class EmployerWorkspaceService {
     if (error) throw mapDatabaseError(error, 'verify organization membership');
     if (!member)
       throw new ForbiddenException('Organization access is not permitted');
-    const { data: memberRoles, error: memberRolesError } =
-      await this.supabase.adminClient
-        .from('organization_member_roles')
-        .select('organization_role_id')
-        .eq('organization_id', organizationId)
-        .eq('user_id', userId);
-    if (memberRolesError)
-      throw mapDatabaseError(
-        memberRolesError,
-        'verify organization permission',
-      );
-    const roleIds = (
-      (memberRoles ?? []) as unknown as { organization_role_id: string }[]
-    ).map((role) => role.organization_role_id);
-    if (!roleIds.length)
-      throw new ForbiddenException(
-        `Organization permission required: ${permission}`,
-      );
-    const { data: grants, error: grantsError } = await this.supabase.adminClient
-      .from('organization_role_permissions')
-      .select('permission_id')
-      .in('organization_role_id', roleIds)
-      .eq('permission_id', permission)
-      .limit(1);
-    if (grantsError)
-      throw mapDatabaseError(grantsError, 'verify organization permission');
-    if (!grants?.length)
+    const { data: allowed, error: permissionError } =
+      await this.supabase.adminClient.rpc('workflow_has_permission', {
+        p_actor: userId,
+        p_org: organizationId,
+        p_permission: permission,
+      } as never);
+    if (permissionError)
+      throw mapDatabaseError(permissionError, 'verify organization permission');
+    if (!allowed)
       throw new ForbiddenException(
         `Organization permission required: ${permission}`,
       );
@@ -556,20 +554,37 @@ export class EmployerWorkspaceService {
     if (icon) {
       let url: string | null = null;
       if (typeof icon.storage_path === 'string' && icon.storage_path) {
-        const signed = await this.supabase.adminClient.storage
-          .from('department-icons')
-          .createSignedUrl(icon.storage_path, 3600);
-        // A missing preview must not make the whole dashboard unavailable.
-        // The icon catalogue endpoint still reports storage failures directly.
-        if (!signed.error && signed.data) url = signed.data.signedUrl;
+        try {
+          const signed = await withRequestDeadline(
+            this.supabase.adminClient.storage
+              .from('department-icons')
+              .createSignedUrl(icon.storage_path, 3600),
+            5000,
+          );
+          if (!signed.error && signed.data) url = signed.data.signedUrl;
+        } catch {
+          /* Return explicit unavailable status without failing the dashboard. */
+        }
       }
-      iconResponse = { ...icon, url };
+      iconResponse = {
+        id: icon.id,
+        name: icon.name,
+        builtinKey: icon.builtin_key,
+        url,
+        imageStatus: icon.storage_path
+          ? url
+            ? 'available'
+            : 'temporarily_unavailable'
+          : 'builtin',
+        retryable: Boolean(icon.storage_path && !url),
+      };
     }
     return {
       id: row.id,
       organizationId: row.organization_id,
       name: row.name,
       description: row.description,
+      membershipRevision: row.membership_revision,
       displayOrder: row.display_order,
       archived: row.is_archived,
       icon: iconResponse,

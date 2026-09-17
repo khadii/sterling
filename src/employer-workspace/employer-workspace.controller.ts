@@ -1,5 +1,6 @@
 import {
   Body,
+  Headers,
   Controller,
   Delete,
   Get,
@@ -15,6 +16,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiHeader,
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOkResponse,
@@ -22,10 +24,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Roles } from '../auth/roles.decorator';
-import { RolesGuard } from '../auth/roles.guard';
 import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
-import { UserRole } from '../common/enums/user-role.enum';
 import { RequestWithUser } from '../common/types/request-with-user.type';
 import {
   ActivityQueryDto,
@@ -73,8 +72,13 @@ import { EmployerWorkspaceService } from './employer-workspace.service';
   description: 'Resource already exists',
   type: ApiErrorDto,
 })
-@UseGuards(SupabaseAuthGuard, RolesGuard)
-@Roles(UserRole.EMPLOYER)
+@UseGuards(SupabaseAuthGuard)
+@ApiHeader({
+  name: 'X-Organization-Id',
+  required: false,
+  description:
+    'Omit for a single workspace. Select only when you belong to multiple workspaces.',
+})
 @Controller('employer')
 export class EmployerWorkspaceController {
   constructor(private readonly workspace: EmployerWorkspaceService) {}
@@ -82,11 +86,19 @@ export class EmployerWorkspaceController {
   @Get('dashboard')
   @ApiOperation({ summary: 'Get bounded employer dashboard widgets' })
   @ApiOkResponse({ type: EmployerDashboardResponseDto })
-  dashboard(
+  async dashboard(
     @Req() request: RequestWithUser,
+    @Headers('x-organization-id') header: string | undefined,
     @Query() query: OrganizationQueryDto,
   ) {
-    return this.workspace.dashboard(request.user.id, query.organizationId);
+    return this.workspace.dashboard(
+      request.user.id,
+      await this.workspace.resolveOrganization(
+        request.user.id,
+        header,
+        query.organizationId,
+      ),
+    );
   }
 
   @Get('activities')
@@ -94,11 +106,19 @@ export class EmployerWorkspaceController {
     summary: 'Get the filterable organization activity timeline',
   })
   @ApiOkResponse({ type: ActivityListResponseDto })
-  activities(
+  async activities(
     @Req() request: RequestWithUser,
+    @Headers('x-organization-id') header: string | undefined,
     @Query() query: ActivityQueryDto,
   ) {
-    return this.workspace.activities(request.user.id, query);
+    return this.workspace.activities(request.user.id, {
+      ...query,
+      organizationId: await this.workspace.resolveOrganization(
+        request.user.id,
+        header,
+        query.organizationId,
+      ),
+    });
   }
 
   @Get('calendar/summary')
@@ -106,57 +126,94 @@ export class EmployerWorkspaceController {
     summary: 'Get calendar counters for one organization-local day',
   })
   @ApiOkResponse({ type: CalendarSummaryResponseDto })
-  calendarSummary(
+  async calendarSummary(
     @Req() request: RequestWithUser,
+    @Headers('x-organization-id') header: string | undefined,
     @Query() query: CalendarSummaryQueryDto,
   ) {
-    return this.workspace.calendarSummary(request.user.id, query);
+    return this.workspace.calendarSummary(request.user.id, {
+      ...query,
+      organizationId: await this.workspace.resolveOrganization(
+        request.user.id,
+        header,
+        query.organizationId,
+      ),
+    });
   }
 
   @Get('calendar/events')
   @ApiOperation({ summary: 'Get calendar events intersecting a date range' })
   @ApiOkResponse({ type: CalendarEventListResponseDto })
-  calendarEvents(
+  async calendarEvents(
     @Req() request: RequestWithUser,
+    @Headers('x-organization-id') header: string | undefined,
     @Query() query: CalendarQueryDto,
   ) {
-    return this.workspace.calendarEvents(request.user.id, query);
+    return this.workspace.calendarEvents(request.user.id, {
+      ...query,
+      organizationId: await this.workspace.resolveOrganization(
+        request.user.id,
+        header,
+        query.organizationId,
+      ),
+    });
   }
 
   @Post('calendar/events')
   @ApiOperation({ summary: 'Create a manual calendar event' })
   @ApiCreatedResponse({ type: CalendarEventResponseDto })
-  createCalendarEvent(
+  async createCalendarEvent(
     @Req() request: RequestWithUser,
+    @Headers('x-organization-id') header: string | undefined,
     @Body() dto: CreateCalendarEventDto,
   ) {
-    return this.workspace.createCalendarEvent(request.user.id, dto);
+    return this.workspace.createCalendarEvent(request.user.id, {
+      ...dto,
+      organizationId: await this.workspace.resolveOrganization(
+        request.user.id,
+        header,
+        dto.organizationId,
+      ),
+    });
   }
 
   @Get('calendar/events/:eventId')
   @ApiOperation({ summary: 'Get calendar event details' })
   @ApiOkResponse({ type: CalendarEventResponseDto })
-  calendarEvent(
+  async calendarEvent(
     @Req() request: RequestWithUser,
+    @Headers('x-organization-id') header: string | undefined,
     @Param('eventId', ParseUUIDPipe) eventId: string,
     @Query() query: OrganizationQueryDto,
   ) {
     return this.workspace.calendarEvent(
       request.user.id,
       eventId,
-      query.organizationId,
+      await this.workspace.resolveOrganization(
+        request.user.id,
+        header,
+        query.organizationId,
+      ),
     );
   }
 
   @Patch('calendar/events/:eventId')
   @ApiOperation({ summary: 'Update a manually-created calendar event' })
   @ApiOkResponse({ type: CalendarEventResponseDto })
-  updateCalendarEvent(
+  async updateCalendarEvent(
     @Req() request: RequestWithUser,
+    @Headers('x-organization-id') header: string | undefined,
     @Param('eventId', ParseUUIDPipe) eventId: string,
     @Body() dto: UpdateCalendarEventDto,
   ) {
-    return this.workspace.updateCalendarEvent(request.user.id, eventId, dto);
+    return this.workspace.updateCalendarEvent(request.user.id, eventId, {
+      ...dto,
+      organizationId: await this.workspace.resolveOrganization(
+        request.user.id,
+        header,
+        dto.organizationId,
+      ),
+    });
   }
 
   @Delete('calendar/events/:eventId')
@@ -165,13 +222,18 @@ export class EmployerWorkspaceController {
   @ApiNoContentResponse({ description: 'Calendar event deleted' })
   async deleteCalendarEvent(
     @Req() request: RequestWithUser,
+    @Headers('x-organization-id') header: string | undefined,
     @Param('eventId', ParseUUIDPipe) eventId: string,
     @Query() query: OrganizationQueryDto,
   ): Promise<void> {
     await this.workspace.deleteCalendarEvent(
       request.user.id,
       eventId,
-      query.organizationId,
+      await this.workspace.resolveOrganization(
+        request.user.id,
+        header,
+        query.organizationId,
+      ),
     );
   }
 
@@ -180,35 +242,56 @@ export class EmployerWorkspaceController {
     summary: 'List organization departments and summary metrics',
   })
   @ApiOkResponse({ type: DepartmentListResponseDto })
-  departments(
+  async departments(
     @Req() request: RequestWithUser,
+    @Headers('x-organization-id') header: string | undefined,
     @Query() query: DepartmentQueryDto,
   ) {
-    return this.workspace.departments(request.user.id, query);
+    return this.workspace.departments(request.user.id, {
+      ...query,
+      organizationId: await this.workspace.resolveOrganization(
+        request.user.id,
+        header,
+        query.organizationId,
+      ),
+    });
   }
 
   @Post('departments')
   @ApiOperation({ summary: 'Create a department in a completed workspace' })
   @ApiCreatedResponse({ type: DepartmentResponseDto })
-  createDepartment(
+  async createDepartment(
     @Req() request: RequestWithUser,
+    @Headers('x-organization-id') header: string | undefined,
     @Body() dto: CreateDepartmentDto,
   ) {
-    return this.workspace.createDepartment(request.user.id, dto);
+    return this.workspace.createDepartment(request.user.id, {
+      ...dto,
+      organizationId: await this.workspace.resolveOrganization(
+        request.user.id,
+        header,
+        dto.organizationId,
+      ),
+    });
   }
 
   @Get('departments/:departmentId')
   @ApiOperation({ summary: 'Get a department and its available metrics' })
   @ApiOkResponse({ type: DepartmentDetailResponseDto })
-  department(
+  async department(
     @Req() request: RequestWithUser,
+    @Headers('x-organization-id') header: string | undefined,
     @Param('departmentId', ParseUUIDPipe) departmentId: string,
     @Query() query: OrganizationQueryDto,
   ) {
     return this.workspace.department(
       request.user.id,
       departmentId,
-      query.organizationId,
+      await this.workspace.resolveOrganization(
+        request.user.id,
+        header,
+        query.organizationId,
+      ),
     );
   }
 }

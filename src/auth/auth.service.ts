@@ -1,3 +1,4 @@
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UserRole } from '../common/enums/user-role.enum';
@@ -71,12 +72,72 @@ export class AuthService {
       completed_at?: string | null;
     } | null;
     const status = String(onboarding?.status ?? 'not_started');
+    const { data: members, error: membersError } =
+      await this.supabase.adminClient
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id);
+    if (membersError)
+      throw mapDatabaseError(membersError, 'load workspace memberships');
+    const organizationIds = (
+      (members ?? []) as { organization_id: string }[]
+    ).map((row) => row.organization_id);
+    const hasWorkspaceAccess = organizationIds.length > 0;
+    const accountOnboardingComplete =
+      user.roles.length > 0 || hasWorkspaceAccess;
+    const employerWorkspaceSetupComplete = status === 'completed';
+    const onboardingComplete =
+      hasWorkspaceAccess ||
+      (accountOnboardingComplete && !user.roles.includes('employer'));
+
     return {
       ...user,
-      onboardingComplete: status === 'completed',
+      onboardingComplete,
+      accountOnboardingComplete,
+      employerWorkspaceSetupComplete,
+      hasWorkspaceAccess,
+      organizationIds,
+      requiresWorkspaceSelection: organizationIds.length > 1,
+      nextAction: hasWorkspaceAccess
+        ? organizationIds.length > 1
+          ? 'select_workspace'
+          : 'dashboard'
+        : !accountOnboardingComplete
+          ? 'select_account_role'
+          : user.roles.includes('employer')
+            ? 'company_setup'
+            : 'candidate_dashboard',
       onboardingStatus: status,
-      organizationId: onboarding?.organization_id ?? null,
+      organizationId: organizationIds.length === 1 ? organizationIds[0] : null,
       onboardingCompletedAt: onboarding?.completed_at ?? null,
+    };
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const patch: Record<string, unknown> = {};
+    if (dto.displayName !== undefined)
+      patch.display_name = dto.displayName?.trim() || null;
+    if (dto.avatarUrl !== undefined) patch.avatar_url = dto.avatarUrl;
+    if (!Object.keys(patch).length)
+      throw new BadRequestException('Supply displayName or avatarUrl');
+    const { data, error } = await this.supabase.adminClient
+      .from('profiles')
+      .update(patch as never)
+      .eq('id', userId)
+      .select('id,email,display_name,avatar_url')
+      .single();
+    if (error) throw mapDatabaseError(error, 'update profile');
+    const profile = data as unknown as {
+      id: string;
+      email: string;
+      display_name: string | null;
+      avatar_url: string | null;
+    };
+    return {
+      id: profile.id,
+      email: profile.email,
+      displayName: profile.display_name,
+      avatarUrl: profile.avatar_url,
     };
   }
 
@@ -188,7 +249,7 @@ export class AuthService {
     if (assignmentError) {
       throw mapDatabaseError(assignmentError, 'assign account role');
     }
-    return { roles: [role], onboardingComplete: true };
+    return this.me({ id: userId, roles: [role] });
   }
 
   async changeRole(userId: string, role: UserRole) {
@@ -204,6 +265,6 @@ export class AuthService {
     if (error) {
       throw mapDatabaseError(error, 'change account role');
     }
-    return { roles: [role] };
+    return this.me({ id: userId, roles: [role] });
   }
 }
