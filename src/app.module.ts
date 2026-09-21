@@ -1,3 +1,4 @@
+import { HrModule } from './hr/hr.module';
 import { NotificationModule } from './notifications/notification.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -92,6 +93,7 @@ const productionFrontendUrl = (value: string, helpers: Joi.CustomHelpers) => {
             .custom(productionFrontendUrl),
           otherwise: Joi.string().uri(),
         }).optional(),
+        ZOOM_WORKSPACES_JSON: Joi.string().optional(),
         SMTP_HOST: Joi.string().allow('').optional(),
         SMTP_PORT: Joi.number().port().default(587),
         SMTP_SECURE: Joi.boolean().default(false),
@@ -121,6 +123,7 @@ const productionFrontendUrl = (value: string, helpers: Joi.CustomHelpers) => {
     ReferenceModule,
     MailModule,
     NotificationModule,
+    HrModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

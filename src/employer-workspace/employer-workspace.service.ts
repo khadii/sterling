@@ -1,3 +1,4 @@
+import { HrService } from '../hr/hr.service';
 import { withRequestDeadline } from '../supabase/request-timeout';
 import { resolveOrganization } from '../organization-context/resolve-organization';
 import {
@@ -11,6 +12,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 import {
   ActivityQueryDto,
   CalendarQueryDto,
+  CalendarEventKind,
   CalendarSummaryQueryDto,
   CreateCalendarEventDto,
   CreateDepartmentDto,
@@ -24,7 +26,10 @@ type Row = Record<string, unknown>;
 
 @Injectable()
 export class EmployerWorkspaceService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly hr: HrService,
+  ) {}
 
   resolveOrganization(userId: string, header?: string, legacy?: string) {
     return resolveOrganization(this.supabase, userId, header, legacy);
@@ -38,31 +43,61 @@ export class EmployerWorkspaceService {
     );
     const now = new Date();
     const inSevenDays = new Date(now.getTime() + 7 * 86_400_000);
-    const [activities, events, departments] = await Promise.all([
-      this.activities(userId, { organizationId, limit: 5 }),
-      this.calendarEvents(userId, {
-        organizationId,
-        from: now.toISOString(),
-        to: inSevenDays.toISOString(),
-      }),
-      this.departments(userId, {
-        organizationId,
-      } as Resolved<DepartmentQueryDto>),
-    ]);
+    const today = this.localDate(now, membership.timezone);
+    const tomorrow = new Date(`${today}T12:00:00Z`);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    const monthEnd = new Date(`${today}T12:00:00Z`);
+    monthEnd.setUTCDate(monthEnd.getUTCDate() + 30);
+    await this.hr.rpc('hr_sync_milestones', {
+      p_actor: userId,
+      p_org: organizationId,
+      p_from: today,
+      p_to: monthEnd.toISOString().slice(0, 10),
+    });
+    const [activities, events, departments, metrics, widgets, trends] =
+      await Promise.all([
+        this.activities(userId, {
+          organizationId,
+          limit: 5,
+          from: this.localMidnightUtc(today, membership.timezone),
+          to: this.localMidnightUtc(
+            tomorrow.toISOString().slice(0, 10),
+            membership.timezone,
+          ),
+        }),
+        this.calendarEvents(userId, {
+          organizationId,
+          from: now.toISOString(),
+          to: inSevenDays.toISOString(),
+        }),
+        this.departments(userId, {
+          organizationId,
+        } as Resolved<DepartmentQueryDto>),
+        this.hr.metrics(userId, organizationId, today),
+        this.hr.rpc('hr_widgets', {
+          p_actor: userId,
+          p_org: organizationId,
+          p_date: today,
+        }),
+        this.hr.rpc('hr_trends', {
+          p_actor: userId,
+          p_org: organizationId,
+          p_date: today,
+        }),
+      ]);
     return {
       organization: membership.organization,
       timezone: membership.timezone,
       asOf: now.toISOString(),
-      summary: {
-        departments: departments.summary.totalDepartments,
-        headcount: null,
-        openRoles: null,
-        onLeaveToday: null,
-      },
+      summary: metrics.summary,
+      attendance: metrics.attendance,
+      leaveOverview: metrics.leaveOverview,
+      widgets,
+      trends,
       todaysActivity: activities,
       upcomingEvents: events,
       departmentOverview: departments,
-      unavailableMetrics: ['headcount', 'openRoles', 'onLeaveToday'],
+      unavailableMetrics: [],
     };
   }
 
@@ -94,8 +129,19 @@ export class EmployerWorkspaceService {
     const hasMore = rows.length > query.limit;
     const items = rows.slice(0, query.limit);
     const last = items.at(-1);
+    const actions = items.length
+      ? await this.hr.rpc<Record<string, string[]>>('hr_activity_actions', {
+          p_actor: userId,
+          p_org: query.organizationId,
+          p_ids: items.map((row) => String(row.id)),
+        })
+      : {};
     return {
-      items: items.map((row) => this.activityResponse(row)),
+      items: items.map((row) => ({
+        ...this.activityResponse(row),
+        availableActions: actions[String(row.id)] ?? [],
+      })),
+      refreshAfterSeconds: 15,
       nextCursor:
         hasMore && last
           ? this.encodeCursor(String(last.occurred_at), String(last.id))
@@ -120,6 +166,12 @@ export class EmployerWorkspaceService {
     tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
     const toDate = tomorrow.toISOString().slice(0, 10);
     const to = this.localMidnightUtc(toDate, membership.timezone);
+    await this.hr.rpc('hr_sync_milestones', {
+      p_actor: userId,
+      p_org: query.organizationId,
+      p_from: localDate,
+      p_to: localDate,
+    });
     const { data, error } = await this.supabase.adminClient
       .from('calendar_events')
       .select('kind')
@@ -127,17 +179,39 @@ export class EmployerWorkspaceService {
       .lt('starts_at', to)
       .gt('ends_at', from);
     if (error) throw mapDatabaseError(error, 'load calendar summary');
-    const counts: Record<string, number> = {};
+    const counts: Record<string, number> = Object.fromEntries(
+      Object.values(CalendarEventKind).map((kind) => [kind, 0]),
+    );
     for (const row of (data ?? []) as Row[]) {
       const kind = String(row.kind);
       counts[kind] = (counts[kind] ?? 0) + 1;
     }
-    return { date: localDate, timezone: membership.timezone, counts };
+    const metrics = await this.hr.metrics(
+      userId,
+      query.organizationId,
+      localDate,
+    );
+    return {
+      date: localDate,
+      timezone: membership.timezone,
+      counts,
+      summary: metrics.summary,
+    };
   }
 
   async calendarEvents(userId: string, query: Resolved<CalendarQueryDto>) {
-    await this.requireAccess(userId, query.organizationId, 'calendar.view');
+    const membership = await this.requireAccess(
+      userId,
+      query.organizationId,
+      'calendar.view',
+    );
     this.assertDateRange(query.from, query.to, 370);
+    await this.hr.rpc('hr_sync_milestones', {
+      p_actor: userId,
+      p_org: query.organizationId,
+      p_from: this.localDate(new Date(query.from), membership.timezone),
+      p_to: this.localDate(new Date(query.to), membership.timezone),
+    });
     let request = this.supabase.adminClient
       .from('calendar_events')
       .select('*')
@@ -156,7 +230,14 @@ export class EmployerWorkspaceService {
   async calendarEvent(userId: string, eventId: string, organizationId: string) {
     await this.requireAccess(userId, organizationId, 'calendar.view');
     const row = await this.getEvent(eventId, organizationId);
-    return this.eventResponse(row);
+    return {
+      ...this.eventResponse(row),
+      details: await this.hr.rpc('hr_event_details', {
+        p_actor: userId,
+        p_org: organizationId,
+        p_event: eventId,
+      }),
+    };
   }
 
   async createCalendarEvent(
@@ -274,23 +355,21 @@ export class EmployerWorkspaceService {
     }
     const { data, error } = await request;
     if (error) throw mapDatabaseError(error, 'load departments');
+    const metrics = await this.hr.metrics(userId, query.organizationId);
     const items = await Promise.all(
-      ((data ?? []) as Row[]).map((row) => this.departmentResponse(row)),
+      ((data ?? []) as Row[]).map(async (row) => ({
+        ...(await this.departmentResponse(row)),
+        metrics: metrics.departments.find((m: Row) => m.id === row.id),
+      })),
     );
     return {
       summary: {
         totalDepartments: items.length,
-        totalHeadcount: null,
-        totalSubteams: null,
+        totalHeadcount: metrics.summary.headcount,
+        totalSubteams: metrics.summary.subteams,
       },
       items,
-      unavailableMetrics: [
-        'headcount',
-        'subteams',
-        'health',
-        'capacity',
-        'attendance',
-      ],
+      unavailableMetrics: [],
     };
   }
 
@@ -310,8 +389,10 @@ export class EmployerWorkspaceService {
     if (!data) throw new NotFoundException('Department not found');
     return {
       ...(await this.departmentResponse(data)),
-      metrics: { headcount: null, openRoles: null, subteams: null },
-      unavailableMetrics: ['headcount', 'openRoles', 'subteams', 'capacity'],
+      metrics: (await this.hr.metrics(userId, organizationId)).departments.find(
+        (m: Row) => m.id === departmentId,
+      ),
+      unavailableMetrics: [],
     };
   }
 

@@ -78,6 +78,21 @@ export class WorkflowService {
     query: WorkflowQueryDto,
   ) {
     await this.access(userId, org, `${entity}.view`);
+    if (entity === 'teams') {
+      const { data, error } = await this.supabase.adminClient
+        .rpc('hr_team_directory', {
+          p_actor: userId,
+          p_org: org,
+          p_department: query.departmentId ?? null,
+          p_sort: query.sort ?? 'size_desc',
+          p_search: query.search ?? '',
+          p_page: query.page,
+          p_limit: query.limit,
+        } as never)
+        .abortSignal(AbortSignal.timeout(10000));
+      if (error) throw mapDatabaseError(error, 'load team directory');
+      return data;
+    }
     let request = this.supabase.adminClient
       .from(tables[entity])
       .select('*', { count: 'exact' })
@@ -111,6 +126,16 @@ export class WorkflowService {
         .abortSignal(AbortSignal.timeout(10000));
       if (grants.error)
         throw mapDatabaseError(grants.error, 'load role permissions');
+      const stats = await this.supabase.adminClient
+        .rpc('hr_role_stats_batch', {
+          p_actor: userId,
+          p_org: org,
+          p_ids: rows.map((r) => String(r.id)),
+        } as never)
+        .abortSignal(AbortSignal.timeout(10000));
+      if (stats.error)
+        throw mapDatabaseError(stats.error, 'load role statistics');
+      for (const row of rows) row.metrics = (stats.data as Row)[String(row.id)];
       for (const row of rows)
         row.permissionIds = (grants.data as Row[])
           .filter((g) => g.organization_role_id === row.id)
@@ -138,7 +163,21 @@ export class WorkflowService {
       if (error?.code === 'P0002')
         throw new NotFoundException('Resource not found');
       if (error) throw mapDatabaseError(error, 'load workspace resource');
-      return this.response(data);
+      const detail = this.response(data);
+      const { data: stats, error: statsError } = await this.supabase.adminClient
+        .rpc(entity === 'roles' ? 'hr_role_stats' : 'hr_metrics', {
+          p_actor: userId,
+          p_org: org,
+          ...(entity === 'roles' ? { p_role: id } : {}),
+        } as never)
+        .abortSignal(AbortSignal.timeout(10000));
+      if (statsError)
+        throw mapDatabaseError(statsError, 'load resource statistics');
+      detail.metrics =
+        entity === 'roles'
+          ? stats
+          : ((stats as Row).teams as Row[]).find((t) => t.id === id);
+      return detail;
     }
     await this.access(userId, org, `${entity}.view`);
     const { data, error } = await this.supabase.adminClient
@@ -210,54 +249,17 @@ export class WorkflowService {
         membershipRevision: snapshot.membershipRevision,
       };
     }
-    // Pickers are needed by role/team/project/task editors, without exposing private profile fields.
-    const { data: allowed, error: checkError } = await this.supabase.adminClient
-      .rpc('workflow_has_permission', {
+    const { data, error } = await this.supabase.adminClient
+      .rpc('hr_member_directory', {
         p_actor: userId,
         p_org: org,
-        p_permission: teamId ? 'teams.view' : 'workspace.view',
+        p_search: query.search ?? '',
+        p_page: query.page,
+        p_limit: query.limit,
       } as never)
       .abortSignal(AbortSignal.timeout(10000));
-    if (checkError)
-      throw mapDatabaseError(checkError, 'verify member directory access');
-    if (!allowed)
-      throw new ForbiddenException('Member directory access required');
-    let request = this.supabase.adminClient
-      .from(teamId ? 'organization_team_members' : 'organization_members')
-      .select(
-        teamId
-          ? 'user_id,member:organization_members!inner(profile:profiles!inner(id,email,display_name,avatar_url))'
-          : 'user_id,profile:profiles!inner(id,email,display_name,avatar_url)',
-        { count: 'exact' },
-      )
-      .eq('organization_id', org);
-    if (teamId) request = request.eq('team_id', teamId);
-    if (query.search)
-      request = request.ilike(
-        teamId ? 'member.profile.email' : 'profile.email',
-        `%${query.search.replace(/[\\%_]/g, '\\$&')}%`,
-      );
-    const { data, error, count } = await request
-      .order('user_id')
-      .range((query.page - 1) * query.limit, query.page * query.limit - 1)
-      .abortSignal(AbortSignal.timeout(10000));
-    if (error) throw mapDatabaseError(error, 'load members');
-    const profiles = ((data ?? []) as Row[])
-      .map((row) => {
-        const member = teamId
-          ? ((Array.isArray(row.member) ? row.member[0] : row.member) as Row)
-          : row;
-        return (
-          Array.isArray(member.profile) ? member.profile[0] : member.profile
-        ) as Row;
-      })
-      .filter(Boolean);
-    return {
-      items: profiles.map((p) => this.response(p)),
-      total: count ?? 0,
-      page: query.page,
-      limit: query.limit,
-    };
+    if (error) throw mapDatabaseError(error, 'load member directory');
+    return data;
   }
 
   async permissions(userId: string, org: string) {

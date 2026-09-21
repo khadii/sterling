@@ -1,3 +1,4 @@
+import { HrRoleStatsDto, HrTeamMetricsDto } from '../hr/hr-response.dto';
 import {
   ApiProperty,
   ApiPropertyOptional,
@@ -25,6 +26,7 @@ export class WorkflowRoleResponseDto extends IntersectionType(
   WorkflowIdentityDto,
   CreateRoleDto,
 ) {
+  @ApiPropertyOptional({ type: HrRoleStatsDto }) metrics?: HrRoleStatsDto;
   @ApiProperty({ type: 'integer', minimum: 0 }) revision!: number;
   @ApiProperty({ example: 'custom_da0ea39c2cbb4216a460e65b8b349c53' })
   key!: string;
@@ -34,6 +36,16 @@ export class WorkflowTeamResponseDto extends IntersectionType(
   WorkflowIdentityDto,
   CreateTeamDto,
 ) {
+  @ApiPropertyOptional({ type: HrTeamMetricsDto }) metrics?: HrTeamMetricsDto;
+  @ApiPropertyOptional({ example: 0 }) memberCount?: number;
+  @ApiPropertyOptional({ type: Number, nullable: true, example: 0 })
+  plannedCapacity?: number | null;
+  @ApiPropertyOptional({ type: Number, nullable: true, example: 0 })
+  capacityPercent?: number | null;
+  @ApiPropertyOptional({ type: Boolean, nullable: true }) understaffed?:
+    boolean | null;
+  @ApiPropertyOptional({ type: String, nullable: true, format: 'uuid' })
+  iconId?: string | null;
   @ApiProperty({ type: 'integer', minimum: 0 }) membershipRevision!: number;
 }
 export class WorkflowProgressDto {

@@ -61,7 +61,10 @@ it('documents scalar defaults and nullable values without Object schemas', async
       properties: { website: { type: 'string', nullable: true } },
     });
     expect(schemas.DepartmentMetricsResponseDto).toMatchObject({
-      properties: { headcount: { type: 'number', nullable: true } },
+      properties: {
+        headcount: { type: 'number', example: 0 },
+        attendancePercent: { type: 'number', nullable: true },
+      },
     });
     expect(schemas.CountryReferenceDto).toMatchObject({
       properties: { phoneCode: { type: 'string', nullable: true } },

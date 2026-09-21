@@ -1,3 +1,9 @@
+import {
+  HrSummaryDto,
+  HrDepartmentMetricsDto,
+  HrAttendanceSummaryDto,
+  HrLeaveSummaryDto,
+} from '../../hr/hr-response.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ActivityCategory,
@@ -53,6 +59,12 @@ export class ActivityResponseDto {
 }
 
 export class ActivityListResponseDto {
+  @ApiProperty({
+    example: 15,
+    description:
+      'Refresh the first page at this interval for live activity updates',
+  })
+  refreshAfterSeconds!: number;
   @ApiProperty({ type: [ActivityResponseDto] }) items!: ActivityResponseDto[];
   @ApiPropertyOptional({
     type: String,
@@ -70,6 +82,11 @@ export class CalendarAttendeeResponseDto {
 }
 
 export class CalendarEventResponseDto {
+  @ApiPropertyOptional({
+    type: Object,
+    description: 'Permission-checked HR source detail, present on GET by ID',
+  })
+  details?: object;
   @ApiProperty({ format: 'uuid', example: EVENT_ID }) id!: string;
   @ApiProperty({ format: 'uuid', example: ORGANIZATION_ID })
   organizationId!: string;
@@ -143,6 +160,7 @@ export class CalendarCountsResponseDto {
 }
 
 export class CalendarSummaryResponseDto {
+  @ApiProperty({ type: HrSummaryDto }) summary!: HrSummaryDto;
   @ApiProperty({ format: 'date', example: '2026-09-04' }) date!: string;
   @ApiProperty({ example: 'Africa/Lagos' }) timezone!: string;
   @ApiProperty({ type: CalendarCountsResponseDto })
@@ -171,6 +189,8 @@ export class DepartmentIconResponseDto {
 }
 
 export class DepartmentResponseDto {
+  @ApiPropertyOptional({ type: HrDepartmentMetricsDto })
+  metrics?: HrDepartmentMetricsDto;
   @ApiProperty({ type: 'integer' }) membershipRevision!: number;
   @ApiProperty({ format: 'uuid', example: DEPARTMENT_ID }) id!: string;
   @ApiProperty({ format: 'uuid', example: ORGANIZATION_ID })
@@ -192,10 +212,9 @@ export class DepartmentResponseDto {
 
 export class DepartmentSummaryResponseDto {
   @ApiProperty({ example: 3 }) totalDepartments!: number;
-  @ApiProperty({ type: Number, nullable: true, example: null })
-  totalHeadcount!: number | null;
-  @ApiProperty({ type: Number, nullable: true, example: null }) totalSubteams!:
-    number | null;
+  @ApiProperty({ type: Number, example: 0 })
+  totalHeadcount!: number;
+  @ApiProperty({ type: Number, example: 0 }) totalSubteams!: number;
 }
 
 export class DepartmentListResponseDto {
@@ -205,41 +224,49 @@ export class DepartmentListResponseDto {
   items!: DepartmentResponseDto[];
   @ApiProperty({
     type: [String],
-    example: ['headcount', 'subteams', 'health', 'capacity', 'attendance'],
+    example: [],
   })
   unavailableMetrics!: string[];
 }
 
-export class DepartmentMetricsResponseDto {
-  @ApiProperty({ type: Number, nullable: true, example: null }) headcount!:
-    number | null;
-  @ApiProperty({ type: Number, nullable: true, example: null }) openRoles!:
-    number | null;
-  @ApiProperty({ type: Number, nullable: true, example: null }) subteams!:
-    number | null;
-}
+export class DepartmentMetricsResponseDto extends HrDepartmentMetricsDto {}
 
 export class DepartmentDetailResponseDto extends DepartmentResponseDto {
   @ApiProperty({ type: DepartmentMetricsResponseDto })
-  metrics!: DepartmentMetricsResponseDto;
+  declare metrics: DepartmentMetricsResponseDto;
   @ApiProperty({
     type: [String],
-    example: ['headcount', 'openRoles', 'subteams', 'capacity'],
+    example: [],
   })
   unavailableMetrics!: string[];
 }
 
-export class DashboardSummaryResponseDto {
-  @ApiProperty({ example: 3 }) departments!: number;
-  @ApiProperty({ type: Number, nullable: true, example: null }) headcount!:
-    number | null;
-  @ApiProperty({ type: Number, nullable: true, example: null }) openRoles!:
-    number | null;
-  @ApiProperty({ type: Number, nullable: true, example: null }) onLeaveToday!:
-    number | null;
-}
+export class DashboardSummaryResponseDto extends HrSummaryDto {}
 
 export class EmployerDashboardResponseDto {
+  @ApiProperty({ type: HrAttendanceSummaryDto })
+  attendance!: HrAttendanceSummaryDto;
+  @ApiProperty({ type: HrLeaveSummaryDto }) leaveOverview!: HrLeaveSummaryDto;
+  @ApiProperty({
+    type: Object,
+    example: {
+      starters: [],
+      awayToday: [],
+      milestones: [],
+      upcomingBirthdaysAndAnniversaries: [],
+      nextPayrollClose: null,
+    },
+  })
+  widgets!: object;
+  @ApiProperty({
+    type: Object,
+    example: {
+      headcount: [{ date: '2026-09-21', value: 0 }],
+      attendance: [{ date: '2026-09-21', present: 0 }],
+    },
+  })
+  trends!: object;
+
   @ApiProperty({ type: OrganizationSummaryDto })
   organization!: OrganizationSummaryDto;
   @ApiProperty({ example: 'Africa/Lagos' }) timezone!: string;
@@ -255,7 +282,7 @@ export class EmployerDashboardResponseDto {
   departmentOverview!: DepartmentListResponseDto;
   @ApiProperty({
     type: [String],
-    example: ['headcount', 'openRoles', 'onLeaveToday'],
+    example: [],
   })
   unavailableMetrics!: string[];
 }

@@ -1,4 +1,4 @@
--- Run against an isolated database with 0001–0009 applied. Rolls back all fixtures.
+-- Run against an isolated database with all migrations applied. Rolls back all fixtures.
 begin;
 do $$
 #variable_conflict use_variable
@@ -31,13 +31,13 @@ begin
  if result->>'name'<>'Backend Engineer' then raise exception 'PATCH lost previous fields'; end if;
  perform public.workflow_mutate(actor,org,'member.assign',employee,jsonb_build_object('roleIds',jsonb_build_array(role_id)));
  if not public.workflow_has_permission(employee,org,'teams.view') then raise exception 'Assignment did not grant permissions'; end if;
- perform public.workflow_mutate(actor,org,'role.permissions',role_id,'{"permissionIds":[]}');
+ perform public.workflow_mutate(actor,org,'role.permissions',role_id,jsonb_build_object('permissionIds','[]'::jsonb,'expectedRevision',(select revision from organization_roles where id=role_id)));
  if public.workflow_has_permission(employee,org,'teams.view') then raise exception 'Revocation did not take effect'; end if;
  begin
-  perform public.workflow_mutate(actor,org,'role.permissions',role_id,'{"permissionIds":["not.real"]}'); raise exception 'Unknown permission accepted';
+  perform public.workflow_mutate(actor,org,'role.permissions',role_id,jsonb_build_object('permissionIds',array['not.real'],'expectedRevision',(select revision from organization_roles where id=role_id))); raise exception 'Unknown permission accepted';
  exception when invalid_parameter_value then null; end;
  begin
-  perform public.workflow_mutate(actor,org,'role.permissions',owner_role,'{"permissionIds":[]}'); raise exception 'Owner role modified';
+  perform public.workflow_mutate(actor,org,'role.permissions',owner_role,jsonb_build_object('permissionIds','[]'::jsonb,'expectedRevision',(select revision from organization_roles where id=owner_role))); raise exception 'Owner role modified';
  exception when insufficient_privilege then null; end;
  begin
   perform public.workflow_mutate(actor,org,'member.unassign',actor,jsonb_build_object('roleIds',jsonb_build_array(owner_role))); raise exception 'Owner removed';
@@ -60,7 +60,7 @@ begin
 
  result:=public.workflow_mutate(actor,org,'team.save',null,jsonb_build_object('name','Backend Core','departmentId',dep,'memberIds',jsonb_build_array(employee))); team_id:=(result->>'id')::uuid;
  begin
-  perform public.workflow_mutate(actor,org,'team.members',team_id,jsonb_build_object('memberIds',jsonb_build_array(outsider))); raise exception 'Foreign team member accepted';
+  perform public.workflow_mutate(actor,org,'team.members',team_id,jsonb_build_object('memberIds',jsonb_build_array(outsider),'expectedRevision',(select membership_revision from organization_teams where id=team_id))); raise exception 'Foreign team member accepted';
  exception when foreign_key_violation then null; end;
  if not exists(select 1 from public.organization_team_members m where m.team_id=team_id and m.user_id=employee) then raise exception 'Failed membership replacement lost existing members'; end if;
  begin

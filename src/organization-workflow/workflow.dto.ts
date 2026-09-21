@@ -33,6 +33,13 @@ export class WorkflowDepartmentDto extends OmitType(CreateDepartmentDto, [
 ] as const) {}
 export class WorkflowQueryDto {
   @ApiPropertyOptional({
+    enum: ['size_desc', 'size_asc', 'name'],
+    description: 'Team directory sorting; defaults to largest first',
+  })
+  @IsOptional()
+  @IsIn(['size_desc', 'size_asc', 'name'])
+  sort?: string;
+  @ApiPropertyOptional({
     format: 'uuid',
     description:
       'Omit for a single-workspace account. Required only to select among multiple memberships.',
@@ -130,7 +137,49 @@ export class RoleRequirementsDto {
   @MaxLength(5000)
   otherRequirements?: string;
 }
+export class RoleLeaveDaysDto {
+  @ApiPropertyOptional({ example: 25 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(366)
+  annual?: number;
+  @ApiPropertyOptional({ example: 10 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(366)
+  sick?: number;
+  @ApiPropertyOptional({ example: 5 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(366)
+  study?: number;
+}
+export class RoleBenefitDetailDto {
+  @ApiProperty() @IsString() @Length(1, 100) name!: string;
+  @ApiProperty() @IsString() @MaxLength(1000) description!: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  allowance?: number;
+}
 export class RoleBenefitsDto {
+  @ApiPropertyOptional({ type: RoleLeaveDaysDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RoleLeaveDaysDto)
+  leaveDays?: RoleLeaveDaysDto;
+  @ApiPropertyOptional({ type: [RoleBenefitDetailDto] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => RoleBenefitDetailDto)
+  details?: RoleBenefitDetailDto[];
+
   @ApiPropertyOptional({ example: 'USD' })
   @IsOptional()
   @Matches(/^[A-Z]{3}$/)
