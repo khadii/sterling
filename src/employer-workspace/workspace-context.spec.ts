@@ -183,6 +183,19 @@ describe('All employer routes resolve workspace context', () => {
       new DocumentBuilder().setTitle('Test').build(),
     );
     const schemas = doc.components!.schemas!;
+    expect(schemas.EmployerDashboardResponseDto).toMatchObject({
+      properties: {
+        date: { type: 'string', format: 'date' },
+        departments: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/HrDepartmentMetricsDto' },
+        },
+        teams: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/HrTeamMetricsDto' },
+        },
+      },
+    });
     expect(schemas.CreateCalendarEventDto).not.toMatchObject({
       required: expect.arrayContaining(['organizationId']) as unknown,
     });

@@ -85,7 +85,7 @@ describe('HR contract', () => {
     await expect(hr.metrics(actor, actor)).rejects.toBeInstanceOf(expected);
     expect(abortSignal).toHaveBeenCalledWith(expect.any(AbortSignal));
   });
-  it('publishes typed statistics and numeric query inputs in Swagger', async () => {
+  it('documents HR metrics and operations', async () => {
     const module = await Test.createTestingModule({
       controllers: [HrController],
       providers: [
@@ -111,14 +111,14 @@ describe('HR contract', () => {
           },
         },
       });
+      expect(doc.components?.schemas?.HrSummaryDto).toMatchObject({
+        properties: { headcount: { type: 'number', example: 0 } },
+      });
       const schema = doc.components?.schemas?.HrQueryDto; // Query fields are flattened by Nest.
       const page = doc.paths['/employer/hr/employees'].get?.parameters?.find(
         (p) => 'name' in p && p.name === 'page',
       );
       expect(page).toMatchObject({ schema: { type: 'number', default: 1 } });
-      expect(doc.components?.schemas?.HrSummaryDto).toMatchObject({
-        properties: { headcount: { type: 'number', example: 0 } },
-      });
       expect(schema).toBeUndefined();
     } finally {
       await app.close();

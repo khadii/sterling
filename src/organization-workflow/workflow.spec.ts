@@ -39,6 +39,20 @@ describe('Workflow request validation', () => {
       expect.arrayContaining(['priority', 'status']),
     );
   });
+  it('accepts only a UUID as the selected role icon catalogue ID', async () => {
+    const valid = plainToInstance(CreateRoleDto, {
+      name: 'Engineer',
+      iconId: 'f91c8019-92a8-4714-bf0a-00f3ff5520df',
+    });
+    expect(await validate(valid)).toEqual([]);
+    const invalid = plainToInstance(CreateRoleDto, {
+      name: 'Engineer',
+      iconId: 'new-generated-icon',
+    });
+    expect((await validate(invalid)).map((e) => e.property)).toContain(
+      'iconId',
+    );
+  });
   it('rejects impossible dates', async () => {
     const dto = plainToInstance(CreateProjectDto, {
       name: 'API',
@@ -57,6 +71,69 @@ describe('Workflow request validation', () => {
         plainToInstance(UpdateTaskDto, { assigneeId: null, status: 'done' }),
       ),
     ).toEqual([]);
+  });
+});
+
+describe('Role icon persistence', () => {
+  const iconId = 'f91c8019-92a8-4714-bf0a-00f3ff5520df';
+  const roleId = '152d8fe4-4c96-4e1f-a336-88fa60762587';
+  function setup(iconData: object | null) {
+    const iconQuery = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn().mockResolvedValue({ data: iconData, error: null }),
+    };
+    const mutation = {
+      abortSignal: jest.fn().mockResolvedValue({
+        data: {
+          id: roleId,
+          organization_id: 'organization',
+          name: 'Engineer',
+          definition: { name: 'Engineer', iconId },
+        },
+        error: null,
+      }),
+    };
+    const adminClient = {
+      from: jest.fn().mockReturnValue(iconQuery),
+      rpc: jest.fn().mockReturnValue(mutation),
+    };
+    return {
+      service: new WorkflowService({
+        adminClient,
+      } as unknown as SupabaseService),
+      adminClient,
+    };
+  }
+  it('returns the exact selected catalogue ID on role creation', async () => {
+    const { service, adminClient } = setup({ id: iconId });
+    const role = await service.mutate(
+      'actor',
+      'organization',
+      'role.save',
+      null,
+      {
+        name: 'Engineer',
+        iconId,
+      },
+    );
+    expect(adminClient.from).toHaveBeenCalledWith('department_icons');
+    expect(role).toMatchObject({ id: roleId, iconId });
+    expect(adminClient.rpc).toHaveBeenCalledWith(
+      'workflow_mutate',
+      expect.objectContaining({ p_data: { name: 'Engineer', iconId } }),
+    );
+  });
+  it('rejects inactive or unknown catalogue IDs instead of substituting an icon', async () => {
+    const { service, adminClient } = setup(null);
+    await expect(
+      service.mutate('actor', 'organization', 'role.save', null, {
+        name: 'Engineer',
+        iconId,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(adminClient.rpc).not.toHaveBeenCalled();
   });
 });
 

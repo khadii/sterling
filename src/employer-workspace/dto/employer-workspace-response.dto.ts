@@ -3,6 +3,7 @@ import {
   HrDepartmentMetricsDto,
   HrAttendanceSummaryDto,
   HrLeaveSummaryDto,
+  HrTeamMetricsDto,
 } from '../../hr/hr-response.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
@@ -244,6 +245,12 @@ export class DepartmentDetailResponseDto extends DepartmentResponseDto {
 export class DashboardSummaryResponseDto extends HrSummaryDto {}
 
 export class EmployerDashboardResponseDto {
+  @ApiProperty({ format: 'date', example: '2026-09-21' })
+  date!: string;
+  @ApiProperty({ type: [HrDepartmentMetricsDto] })
+  departments!: HrDepartmentMetricsDto[];
+  @ApiProperty({ type: [HrTeamMetricsDto] })
+  teams!: HrTeamMetricsDto[];
   @ApiProperty({ type: HrAttendanceSummaryDto })
   attendance!: HrAttendanceSummaryDto;
   @ApiProperty({ type: HrLeaveSummaryDto }) leaveOverview!: HrLeaveSummaryDto;

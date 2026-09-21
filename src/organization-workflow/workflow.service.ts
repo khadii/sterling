@@ -7,6 +7,7 @@ import {
 import { resolveOrganization } from '../organization-context/resolve-organization';
 import { SupabaseService } from '../supabase/supabase.service';
 import { mapDatabaseError } from '../supabase/database-error.mapper';
+import { withRequestDeadline } from '../supabase/request-timeout';
 import { WorkflowQueryDto } from './workflow.dto';
 
 type Row = Record<string, unknown>;
@@ -47,6 +48,14 @@ export class WorkflowService {
     data: object,
   ) {
     this.validateNulls(data);
+    if (action === 'role.save' && Object.hasOwn(data, 'iconId')) {
+      const iconId = (data as Row).iconId;
+      if (iconId !== null) {
+        if (typeof iconId !== 'string')
+          throw new BadRequestException('Invalid role icon ID');
+        await this.validateRoleIcon(iconId);
+      }
+    }
     const { data: result, error } = await this.supabase.adminClient
       .rpc('workflow_mutate', {
         p_actor: userId,
@@ -308,9 +317,26 @@ export class WorkflowService {
     };
   }
 
+  private async validateRoleIcon(iconId: string) {
+    const { data, error } = await withRequestDeadline(
+      this.supabase.adminClient
+        .from('department_icons')
+        .select('id')
+        .eq('id', iconId)
+        .eq('is_active', true)
+        .is('deleted_at', null)
+        .maybeSingle(),
+    );
+    if (error) throw mapDatabaseError(error, 'verify role icon');
+    if (!data) throw new BadRequestException('Active role icon required');
+  }
+
   private validateNulls(value: object) {
     for (const [key, item] of Object.entries(value)) {
-      if (item === null && !['assigneeId', 'reportsToUserId'].includes(key))
+      if (
+        item === null &&
+        !['assigneeId', 'reportsToUserId', 'iconId'].includes(key)
+      )
         throw new BadRequestException(`${key} cannot be null`);
       if (item && typeof item === 'object') this.validateNulls(item as object);
     }

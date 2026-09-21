@@ -86,7 +86,7 @@ import {
   PayrollLineDto,
   MessageDto,
 )
-@ApiTags('Employer HR Dashboard')
+@ApiTags('Employer HR Operations')
 @ApiBearerAuth()
 @ApiHeader({
   name: 'X-Organization-Id',

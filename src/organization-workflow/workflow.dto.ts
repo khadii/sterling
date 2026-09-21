@@ -263,6 +263,16 @@ export class CreateRoleDto {
   @IsOptional()
   @IsUUID()
   departmentId?: string;
+  @ApiPropertyOptional({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description:
+      'ID of an active icon from GET /reference/department-icons. The selected ID is stored and returned unchanged.',
+  })
+  @IsOptional()
+  @IsUUID()
+  iconId?: string | null;
   @ApiPropertyOptional({ enum: ['draft', 'active'], default: 'draft' })
   @IsOptional()
   @IsIn(['draft', 'active'])

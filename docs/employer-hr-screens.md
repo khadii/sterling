@@ -14,7 +14,7 @@ All paths below have the `/api/v1` prefix. Swagger exposes request examples, sca
 
 | Screen | API and fields |
 |---|---|
-| Employer dashboard | `GET /employer/dashboard`: `summary`, `attendance`, `leaveOverview`, `widgets`, `trends`, `todaysActivity`, `upcomingEvents`, `departmentOverview` |
+| Employer dashboard (shared with HR) | `GET /employer/dashboard` returns the full shared stats: `date`, `summary`, `departments`, `teams`, `attendance`, and `leaveOverview`, plus employer widgets, trends, today's activity, upcoming events, and the department overview. Optional stats-only endpoint: `GET /employer/hr/metrics`. |
 | Departments overview | `GET /employer/departments`: actual employee totals, subteams, open positions, attendance, budget utilization, configured operational status and lead |
 | Department detail | `GET /employer/departments/:id`: `metrics`; `GET /employer/hr/departments/:id/chart` for reporting relationships |
 | Role directory/detail | Existing `GET /organization/roles` and `GET /organization/roles/:id` now include `metrics` for vacancies, filled positions, currency-separated averages and holders |
@@ -31,6 +31,7 @@ All paths below have the `/api/v1` prefix. Swagger exposes request examples, sca
 | Payroll closing modal | `GET /employer/hr/payroll/:id`: gross, deductions, net, employee count, pending recorded timesheets and lines |
 | Expiring documents | `GET /employer/hr/documents`; request-update and dismiss actions below |
 
+Role icons use `iconId` from the same active catalogue returned by `GET /reference/department-icons`. The role API stores and returns this selected catalogue ID unchanged; it does not create a new icon.
 Uploaded subteam icons use `iconId`, referring to the same department-icon catalogue used by the icon picker. Use the catalogue's returned signed `url` and `builtinKey`; do not build storage URLs yourself. Referenced subteam icons are protected from permanent deletion before storage files are removed.
 
 ## Calculation rules
