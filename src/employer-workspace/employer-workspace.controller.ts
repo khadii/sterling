@@ -1,6 +1,5 @@
 import {
   Body,
-  Headers,
   Controller,
   Delete,
   Get,
@@ -82,20 +81,23 @@ import { EmployerWorkspaceService } from './employer-workspace.service';
 @Controller('employer')
 export class EmployerWorkspaceController {
   constructor(private readonly workspace: EmployerWorkspaceService) {}
+  private orgHeader(request: RequestWithUser): string | undefined {
+    const value = request.headers['x-organization-id'];
+    return Array.isArray(value) ? value[0] : value;
+  }
 
   @Get('dashboard')
   @ApiOperation({ summary: 'Get bounded employer dashboard widgets' })
   @ApiOkResponse({ type: EmployerDashboardResponseDto })
   async dashboard(
     @Req() request: RequestWithUser,
-    @Headers('x-organization-id') header: string | undefined,
     @Query() query: OrganizationQueryDto,
   ) {
     return this.workspace.dashboard(
       request.user.id,
       await this.workspace.resolveOrganization(
         request.user.id,
-        header,
+        this.orgHeader(request),
         query.organizationId,
       ),
     );
@@ -108,14 +110,13 @@ export class EmployerWorkspaceController {
   @ApiOkResponse({ type: ActivityListResponseDto })
   async activities(
     @Req() request: RequestWithUser,
-    @Headers('x-organization-id') header: string | undefined,
     @Query() query: ActivityQueryDto,
   ) {
     return this.workspace.activities(request.user.id, {
       ...query,
       organizationId: await this.workspace.resolveOrganization(
         request.user.id,
-        header,
+        this.orgHeader(request),
         query.organizationId,
       ),
     });
@@ -128,14 +129,13 @@ export class EmployerWorkspaceController {
   @ApiOkResponse({ type: CalendarSummaryResponseDto })
   async calendarSummary(
     @Req() request: RequestWithUser,
-    @Headers('x-organization-id') header: string | undefined,
     @Query() query: CalendarSummaryQueryDto,
   ) {
     return this.workspace.calendarSummary(request.user.id, {
       ...query,
       organizationId: await this.workspace.resolveOrganization(
         request.user.id,
-        header,
+        this.orgHeader(request),
         query.organizationId,
       ),
     });
@@ -146,14 +146,13 @@ export class EmployerWorkspaceController {
   @ApiOkResponse({ type: CalendarEventListResponseDto })
   async calendarEvents(
     @Req() request: RequestWithUser,
-    @Headers('x-organization-id') header: string | undefined,
     @Query() query: CalendarQueryDto,
   ) {
     return this.workspace.calendarEvents(request.user.id, {
       ...query,
       organizationId: await this.workspace.resolveOrganization(
         request.user.id,
-        header,
+        this.orgHeader(request),
         query.organizationId,
       ),
     });
@@ -164,14 +163,13 @@ export class EmployerWorkspaceController {
   @ApiCreatedResponse({ type: CalendarEventResponseDto })
   async createCalendarEvent(
     @Req() request: RequestWithUser,
-    @Headers('x-organization-id') header: string | undefined,
     @Body() dto: CreateCalendarEventDto,
   ) {
     return this.workspace.createCalendarEvent(request.user.id, {
       ...dto,
       organizationId: await this.workspace.resolveOrganization(
         request.user.id,
-        header,
+        this.orgHeader(request),
         dto.organizationId,
       ),
     });
@@ -182,7 +180,6 @@ export class EmployerWorkspaceController {
   @ApiOkResponse({ type: CalendarEventResponseDto })
   async calendarEvent(
     @Req() request: RequestWithUser,
-    @Headers('x-organization-id') header: string | undefined,
     @Param('eventId', ParseUUIDPipe) eventId: string,
     @Query() query: OrganizationQueryDto,
   ) {
@@ -191,7 +188,7 @@ export class EmployerWorkspaceController {
       eventId,
       await this.workspace.resolveOrganization(
         request.user.id,
-        header,
+        this.orgHeader(request),
         query.organizationId,
       ),
     );
@@ -202,7 +199,6 @@ export class EmployerWorkspaceController {
   @ApiOkResponse({ type: CalendarEventResponseDto })
   async updateCalendarEvent(
     @Req() request: RequestWithUser,
-    @Headers('x-organization-id') header: string | undefined,
     @Param('eventId', ParseUUIDPipe) eventId: string,
     @Body() dto: UpdateCalendarEventDto,
   ) {
@@ -210,7 +206,7 @@ export class EmployerWorkspaceController {
       ...dto,
       organizationId: await this.workspace.resolveOrganization(
         request.user.id,
-        header,
+        this.orgHeader(request),
         dto.organizationId,
       ),
     });
@@ -222,7 +218,6 @@ export class EmployerWorkspaceController {
   @ApiNoContentResponse({ description: 'Calendar event deleted' })
   async deleteCalendarEvent(
     @Req() request: RequestWithUser,
-    @Headers('x-organization-id') header: string | undefined,
     @Param('eventId', ParseUUIDPipe) eventId: string,
     @Query() query: OrganizationQueryDto,
   ): Promise<void> {
@@ -231,7 +226,7 @@ export class EmployerWorkspaceController {
       eventId,
       await this.workspace.resolveOrganization(
         request.user.id,
-        header,
+        this.orgHeader(request),
         query.organizationId,
       ),
     );
@@ -244,14 +239,13 @@ export class EmployerWorkspaceController {
   @ApiOkResponse({ type: DepartmentListResponseDto })
   async departments(
     @Req() request: RequestWithUser,
-    @Headers('x-organization-id') header: string | undefined,
     @Query() query: DepartmentQueryDto,
   ) {
     return this.workspace.departments(request.user.id, {
       ...query,
       organizationId: await this.workspace.resolveOrganization(
         request.user.id,
-        header,
+        this.orgHeader(request),
         query.organizationId,
       ),
     });
@@ -262,14 +256,13 @@ export class EmployerWorkspaceController {
   @ApiCreatedResponse({ type: DepartmentResponseDto })
   async createDepartment(
     @Req() request: RequestWithUser,
-    @Headers('x-organization-id') header: string | undefined,
     @Body() dto: CreateDepartmentDto,
   ) {
     return this.workspace.createDepartment(request.user.id, {
       ...dto,
       organizationId: await this.workspace.resolveOrganization(
         request.user.id,
-        header,
+        this.orgHeader(request),
         dto.organizationId,
       ),
     });
@@ -280,7 +273,6 @@ export class EmployerWorkspaceController {
   @ApiOkResponse({ type: DepartmentDetailResponseDto })
   async department(
     @Req() request: RequestWithUser,
-    @Headers('x-organization-id') header: string | undefined,
     @Param('departmentId', ParseUUIDPipe) departmentId: string,
     @Query() query: OrganizationQueryDto,
   ) {
@@ -289,7 +281,7 @@ export class EmployerWorkspaceController {
       departmentId,
       await this.workspace.resolveOrganization(
         request.user.id,
-        header,
+        this.orgHeader(request),
         query.organizationId,
       ),
     );

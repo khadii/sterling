@@ -9,7 +9,6 @@ import {
   Controller,
   Delete,
   Get,
-  Headers,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -79,7 +78,11 @@ export class WorkflowController {
     private readonly workspace: EmployerWorkspaceService,
     private readonly attachments: TaskAttachmentsService,
   ) {}
-  private org(req: RequestWithUser, query: WorkflowQueryDto, header?: string) {
+  private org(req: RequestWithUser, query: WorkflowQueryDto) {
+    const header =
+      typeof req.headers['x-organization-id'] === 'string'
+        ? req.headers['x-organization-id']
+        : undefined;
     return this.workflow.organization(
       req.user.id,
       header,
@@ -107,11 +110,10 @@ export class WorkflowController {
     @Param('taskId', ParseUUIDPipe) id: string,
     @UploadedFile() file: Upload,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.attachments.upload(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       id,
       file,
     );
@@ -122,9 +124,8 @@ export class WorkflowController {
     @Req() r: RequestWithUser,
     @Param('taskId', ParseUUIDPipe) id: string,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
-    return this.attachments.list(r.user.id, await this.org(r, q, h), id);
+    return this.attachments.list(r.user.id, await this.org(r, q), id);
   }
   @Get('tasks/:taskId/attachments/:attachmentId/download')
   @ApiOperation({
@@ -135,11 +136,10 @@ export class WorkflowController {
     @Param('taskId', ParseUUIDPipe) id: string,
     @Param('attachmentId', ParseUUIDPipe) attachment: string,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.attachments.download(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       id,
       attachment,
     );
@@ -153,11 +153,10 @@ export class WorkflowController {
     @Param('taskId', ParseUUIDPipe) id: string,
     @Param('attachmentId', ParseUUIDPipe) attachment: string,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.attachments.remove(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       id,
       attachment,
     );
@@ -169,11 +168,10 @@ export class WorkflowController {
     @Req() r: RequestWithUser,
     @Body() b: WorkflowDepartmentDto,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workspace.createDepartment(r.user.id, {
       ...b,
-      organizationId: await this.org(r, q, h),
+      organizationId: await this.org(r, q),
     });
   }
   @Get('departments')
@@ -181,10 +179,9 @@ export class WorkflowController {
   async departments(
     @Req() r: RequestWithUser,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workspace.departments(r.user.id, {
-      organizationId: await this.org(r, q, h),
+      organizationId: await this.org(r, q),
       search: q.search,
       includeArchived: false,
     });
@@ -195,9 +192,8 @@ export class WorkflowController {
     @Req() r: RequestWithUser,
     @Param('departmentId', ParseUUIDPipe) id: string,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
-    return this.workspace.department(r.user.id, id, await this.org(r, q, h));
+    return this.workspace.department(r.user.id, id, await this.org(r, q));
   }
 
   @Get('permissions')
@@ -205,9 +201,8 @@ export class WorkflowController {
   async permissions(
     @Req() r: RequestWithUser,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
-    return this.workflow.permissions(r.user.id, await this.org(r, q, h));
+    return this.workflow.permissions(r.user.id, await this.org(r, q));
   }
   @Get('members')
   @ApiOperation({
@@ -216,9 +211,8 @@ export class WorkflowController {
   async members(
     @Req() r: RequestWithUser,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
-    return this.workflow.members(r.user.id, await this.org(r, q, h), q);
+    return this.workflow.members(r.user.id, await this.org(r, q), q);
   }
   @Get('roles')
   @ApiOperation({
@@ -242,9 +236,8 @@ export class WorkflowController {
   async roles(
     @Req() r: RequestWithUser,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
-    return this.workflow.list(r.user.id, await this.org(r, q, h), 'roles', q);
+    return this.workflow.list(r.user.id, await this.org(r, q), 'roles', q);
   }
   @Get('roles/:roleId')
   @ApiOperation({ summary: 'Resume a saved role wizard or view a role' })
@@ -253,11 +246,10 @@ export class WorkflowController {
     @Req() r: RequestWithUser,
     @Param('roleId', ParseUUIDPipe) id: string,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.detail(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'roles',
       id,
     );
@@ -272,11 +264,10 @@ export class WorkflowController {
     @Req() r: RequestWithUser,
     @Body() b: CreateRoleDto,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.mutate(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'role.save',
       null,
       b,
@@ -294,11 +285,10 @@ export class WorkflowController {
     @Param('roleId', ParseUUIDPipe) id: string,
     @Body() b: UpdateRoleDto,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.mutate(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'role.save',
       id,
       b,
@@ -312,11 +302,10 @@ export class WorkflowController {
     @Param('roleId', ParseUUIDPipe) id: string,
     @Body() b: PermissionsDto,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.mutate(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'role.permissions',
       id,
       b,
@@ -331,11 +320,10 @@ export class WorkflowController {
     @Param('userId', ParseUUIDPipe) id: string,
     @Body() b: AssignRolesDto,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.mutate(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'member.assign',
       id,
       b,
@@ -350,11 +338,10 @@ export class WorkflowController {
     @Param('userId', ParseUUIDPipe) id: string,
     @Param('roleId', ParseUUIDPipe) roleId: string,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.mutate(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'member.unassign',
       id,
       { roleIds: [roleId] },
@@ -380,9 +367,8 @@ export class WorkflowController {
   async teams(
     @Req() r: RequestWithUser,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
-    return this.workflow.list(r.user.id, await this.org(r, q, h), 'teams', q);
+    return this.workflow.list(r.user.id, await this.org(r, q), 'teams', q);
   }
   @Get('teams/:teamId')
   @ApiOperation({ summary: 'Get a sub-team' })
@@ -391,11 +377,10 @@ export class WorkflowController {
     @Req() r: RequestWithUser,
     @Param('teamId', ParseUUIDPipe) id: string,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.detail(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'teams',
       id,
     );
@@ -409,11 +394,10 @@ export class WorkflowController {
     @Req() r: RequestWithUser,
     @Body() b: CreateTeamDto,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.mutate(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'team.save',
       null,
       b,
@@ -427,11 +411,10 @@ export class WorkflowController {
     @Param('teamId', ParseUUIDPipe) id: string,
     @Body() b: UpdateTeamDto,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.mutate(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'team.save',
       id,
       b,
@@ -443,9 +426,8 @@ export class WorkflowController {
     @Req() r: RequestWithUser,
     @Param('teamId', ParseUUIDPipe) id: string,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
-    return this.workflow.members(r.user.id, await this.org(r, q, h), q, id);
+    return this.workflow.members(r.user.id, await this.org(r, q), q, id);
   }
   @Put('teams/:teamId/members')
   @ApiOperation({ summary: 'Replace team membership atomically' })
@@ -455,11 +437,10 @@ export class WorkflowController {
     @Param('teamId', ParseUUIDPipe) id: string,
     @Body() b: MembersDto,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.mutate(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'team.members',
       id,
       b,
@@ -485,11 +466,10 @@ export class WorkflowController {
   async projects(
     @Req() r: RequestWithUser,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.list(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'projects',
       q,
     );
@@ -501,11 +481,10 @@ export class WorkflowController {
     @Req() r: RequestWithUser,
     @Param('projectId', ParseUUIDPipe) id: string,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.detail(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'projects',
       id,
     );
@@ -520,11 +499,10 @@ export class WorkflowController {
     @Req() r: RequestWithUser,
     @Body() b: CreateProjectDto,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.mutate(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'project.save',
       null,
       b,
@@ -538,11 +516,10 @@ export class WorkflowController {
     @Param('projectId', ParseUUIDPipe) id: string,
     @Body() b: UpdateProjectDto,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.mutate(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'project.save',
       id,
       b,
@@ -556,11 +533,10 @@ export class WorkflowController {
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Body() b: CreateTaskDto,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.mutate(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'task.save',
       null,
       { ...b, projectId },
@@ -585,9 +561,8 @@ export class WorkflowController {
   async tasks(
     @Req() r: RequestWithUser,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
-    return this.workflow.list(r.user.id, await this.org(r, q, h), 'tasks', q);
+    return this.workflow.list(r.user.id, await this.org(r, q), 'tasks', q);
   }
   @Get('tasks/:taskId')
   @ApiOperation({ summary: 'View task details' })
@@ -596,11 +571,10 @@ export class WorkflowController {
     @Req() r: RequestWithUser,
     @Param('taskId', ParseUUIDPipe) id: string,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.detail(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'tasks',
       id,
     );
@@ -613,11 +587,10 @@ export class WorkflowController {
     @Param('taskId', ParseUUIDPipe) id: string,
     @Body() b: UpdateTaskDto,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.mutate(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'task.save',
       id,
       b,
@@ -629,9 +602,8 @@ export class WorkflowController {
     @Req() r: RequestWithUser,
     @Param('taskId', ParseUUIDPipe) id: string,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
-    return this.attachments.deleteTask(r.user.id, await this.org(r, q, h), id);
+    return this.attachments.deleteTask(r.user.id, await this.org(r, q), id);
   }
   @Post('tasks/:taskId/notes')
   @ApiOperation({ summary: 'Add a plain-text note' })
@@ -640,11 +612,10 @@ export class WorkflowController {
     @Param('taskId', ParseUUIDPipe) id: string,
     @Body() b: TaskNoteDto,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.mutate(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       'task.note',
       id,
       b,
@@ -656,11 +627,10 @@ export class WorkflowController {
     @Req() r: RequestWithUser,
     @Param('taskId', ParseUUIDPipe) id: string,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.taskChildren(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       id,
       'notes',
       q,
@@ -672,11 +642,10 @@ export class WorkflowController {
     @Req() r: RequestWithUser,
     @Param('taskId', ParseUUIDPipe) id: string,
     @Query() q: WorkflowQueryDto,
-    @Headers('x-organization-id') h?: string,
   ) {
     return this.workflow.taskChildren(
       r.user.id,
-      await this.org(r, q, h),
+      await this.org(r, q),
       id,
       'history',
       q,

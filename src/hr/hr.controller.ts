@@ -25,7 +25,6 @@ import {
   Get,
   Post,
   Patch,
-  Headers,
   Param,
   ParseUUIDPipe,
   Query,
@@ -100,6 +99,11 @@ export class HrController {
     private readonly hr: HrService,
     private readonly zoom: ZoomService,
   ) {}
+  private orgHeader(req: RequestWithUser): string | undefined {
+    const value = req.headers['x-organization-id'];
+    return Array.isArray(value) ? value[0] : value;
+  }
+
   @Get('metrics')
   @ApiOkResponse({ type: HrMetricsDto })
   @ApiOperation({
@@ -108,12 +112,11 @@ export class HrController {
   })
   async metrics(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.metrics(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       q.date,
     );
   }
@@ -148,12 +151,11 @@ export class HrController {
   @ApiOperation({ summary: 'List employees records' })
   async list_employees(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.list(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'employees',
       q,
     );
@@ -178,12 +180,11 @@ export class HrController {
   @ApiOperation({ summary: 'Create employees record' })
   async create_employees(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Body() dto: EmployeeDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'employees',
       null,
       dto,
@@ -211,13 +212,12 @@ export class HrController {
   })
   async update_employees(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateEmployeeDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'employees',
       id,
       dto,
@@ -254,12 +254,11 @@ export class HrController {
   @ApiOperation({ summary: 'List onboarding records' })
   async list_onboarding(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.list(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'onboarding',
       q,
     );
@@ -284,13 +283,12 @@ export class HrController {
   @ApiOperation({ summary: 'Create onboarding record' })
   async create_onboarding(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('parentId', ParseUUIDPipe) parentId: string,
     @Body() dto: OnboardingDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'onboarding',
       null,
       { ...dto, employeeId: parentId },
@@ -318,13 +316,12 @@ export class HrController {
   })
   async update_onboarding(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateOnboardingDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'onboarding',
       id,
       dto,
@@ -361,12 +358,11 @@ export class HrController {
   @ApiOperation({ summary: 'List leave records' })
   async list_leave(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.list(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'leave',
       q,
     );
@@ -391,12 +387,11 @@ export class HrController {
   @ApiOperation({ summary: 'Create leave record' })
   async create_leave(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Body() dto: LeaveDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'leave',
       null,
       dto,
@@ -424,13 +419,12 @@ export class HrController {
   })
   async update_leave(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateLeaveDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'leave',
       id,
       dto,
@@ -442,12 +436,11 @@ export class HrController {
   })
   async decide_leave(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Body() dto: BulkDecisionDto,
   ) {
     return this.hr.decide(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'leave',
       dto.ids,
       dto,
@@ -484,12 +477,11 @@ export class HrController {
   @ApiOperation({ summary: 'List attendance records' })
   async list_attendance(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.list(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'attendance',
       q,
     );
@@ -514,12 +506,11 @@ export class HrController {
   @ApiOperation({ summary: 'Create attendance record' })
   async create_attendance(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Body() dto: AttendanceDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'attendance',
       null,
       dto,
@@ -547,13 +538,12 @@ export class HrController {
   })
   async update_attendance(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateAttendanceDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'attendance',
       id,
       dto,
@@ -565,12 +555,11 @@ export class HrController {
   })
   async decide_attendance(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Body() dto: BulkDecisionDto,
   ) {
     return this.hr.decide(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'attendance',
       dto.ids,
       dto,
@@ -607,12 +596,11 @@ export class HrController {
   @ApiOperation({ summary: 'List reviews records' })
   async list_reviews(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.list(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'reviews',
       q,
     );
@@ -637,12 +625,11 @@ export class HrController {
   @ApiOperation({ summary: 'Create reviews record' })
   async create_reviews(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Body() dto: ReviewDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'reviews',
       null,
       dto,
@@ -670,13 +657,12 @@ export class HrController {
   })
   async update_reviews(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateReviewDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'reviews',
       id,
       dto,
@@ -688,12 +674,11 @@ export class HrController {
   })
   async decide_reviews(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Body() dto: BulkDecisionDto,
   ) {
     return this.hr.decide(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'reviews',
       dto.ids,
       dto,
@@ -730,12 +715,11 @@ export class HrController {
   @ApiOperation({ summary: 'List expenses records' })
   async list_expenses(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.list(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'expenses',
       q,
     );
@@ -760,12 +744,11 @@ export class HrController {
   @ApiOperation({ summary: 'Create expenses record' })
   async create_expenses(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Body() dto: ExpenseDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'expenses',
       null,
       dto,
@@ -793,13 +776,12 @@ export class HrController {
   })
   async update_expenses(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateExpenseDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'expenses',
       id,
       dto,
@@ -811,12 +793,11 @@ export class HrController {
   })
   async decide_expenses(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Body() dto: BulkDecisionDto,
   ) {
     return this.hr.decide(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'expenses',
       dto.ids,
       dto,
@@ -853,12 +834,11 @@ export class HrController {
   @ApiOperation({ summary: 'List documents records' })
   async list_documents(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.list(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'documents',
       q,
     );
@@ -883,12 +863,11 @@ export class HrController {
   @ApiOperation({ summary: 'Create documents record' })
   async create_documents(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Body() dto: DocumentDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'documents',
       null,
       dto,
@@ -916,13 +895,12 @@ export class HrController {
   })
   async update_documents(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateDocumentDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'documents',
       id,
       dto,
@@ -959,12 +937,11 @@ export class HrController {
   @ApiOperation({ summary: 'List interviews records' })
   async list_interviews(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.list(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'interviews',
       q,
     );
@@ -989,12 +966,11 @@ export class HrController {
   @ApiOperation({ summary: 'Create interviews record' })
   async create_interviews(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Body() dto: InterviewDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'interviews',
       null,
       dto,
@@ -1022,13 +998,12 @@ export class HrController {
   })
   async update_interviews(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateInterviewDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'interviews',
       id,
       dto,
@@ -1065,12 +1040,11 @@ export class HrController {
   @ApiOperation({ summary: 'List requisitions records' })
   async list_requisitions(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.list(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'requisitions',
       q,
     );
@@ -1095,12 +1069,11 @@ export class HrController {
   @ApiOperation({ summary: 'Create requisitions record' })
   async create_requisitions(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Body() dto: RequisitionDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'requisitions',
       null,
       dto,
@@ -1128,13 +1101,12 @@ export class HrController {
   })
   async update_requisitions(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateRequisitionDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'requisitions',
       id,
       dto,
@@ -1171,12 +1143,11 @@ export class HrController {
   @ApiOperation({ summary: 'List department-plans records' })
   async list_department_plans(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.list(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'department-plans',
       q,
     );
@@ -1201,13 +1172,12 @@ export class HrController {
   @ApiOperation({ summary: 'Create department-plans record' })
   async create_department_plans(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('parentId', ParseUUIDPipe) parentId: string,
     @Body() dto: DepartmentPlanningDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'department-plans',
       null,
       { ...dto, departmentId: parentId },
@@ -1236,13 +1206,12 @@ export class HrController {
   })
   async update_department_plans(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateDepartmentPlanningDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'department-plans',
       id,
       dto,
@@ -1279,12 +1248,11 @@ export class HrController {
   @ApiOperation({ summary: 'List team-plans records' })
   async list_team_plans(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.list(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'team-plans',
       q,
     );
@@ -1309,13 +1277,12 @@ export class HrController {
   @ApiOperation({ summary: 'Create team-plans record' })
   async create_team_plans(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('parentId', ParseUUIDPipe) parentId: string,
     @Body() dto: TeamPlanningDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'team-plans',
       null,
       { ...dto, teamId: parentId },
@@ -1343,13 +1310,12 @@ export class HrController {
   })
   async update_team_plans(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTeamPlanningDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'team-plans',
       id,
       dto,
@@ -1386,12 +1352,11 @@ export class HrController {
   @ApiOperation({ summary: 'List entitlements records' })
   async list_entitlements(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.list(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'entitlements',
       q,
     );
@@ -1416,13 +1381,12 @@ export class HrController {
   @ApiOperation({ summary: 'Create entitlements record' })
   async create_entitlements(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('parentId', ParseUUIDPipe) parentId: string,
     @Body() dto: LeaveEntitlementDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'entitlements',
       null,
       { ...dto, employeeId: parentId },
@@ -1450,13 +1414,12 @@ export class HrController {
   })
   async update_entitlements(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateLeaveEntitlementDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'entitlements',
       id,
       dto,
@@ -1493,12 +1456,11 @@ export class HrController {
   @ApiOperation({ summary: 'List payroll records' })
   async list_payroll(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.list(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'payroll',
       q,
     );
@@ -1523,12 +1485,11 @@ export class HrController {
   @ApiOperation({ summary: 'Create payroll record' })
   async create_payroll(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Body() dto: PayrollDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'payroll',
       null,
       dto,
@@ -1556,13 +1517,12 @@ export class HrController {
   })
   async update_payroll(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePayrollDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'payroll',
       id,
       dto,
@@ -1599,12 +1559,11 @@ export class HrController {
   @ApiOperation({ summary: 'List payroll-lines records' })
   async list_payroll_lines(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.list(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'payroll-lines',
       q,
     );
@@ -1629,13 +1588,12 @@ export class HrController {
   @ApiOperation({ summary: 'Create payroll-lines record' })
   async create_payroll_lines(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('parentId', ParseUUIDPipe) parentId: string,
     @Body() dto: PayrollLineDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'payroll-lines',
       null,
       { ...dto, payrollId: parentId },
@@ -1664,13 +1622,12 @@ export class HrController {
   })
   async update_payroll_lines(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePayrollLineDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'payroll-lines',
       id,
       dto,
@@ -1707,12 +1664,11 @@ export class HrController {
   @ApiOperation({ summary: 'List celebrations records' })
   async list_celebrations(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.list(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'celebrations',
       q,
     );
@@ -1737,13 +1693,12 @@ export class HrController {
   @ApiOperation({ summary: 'Create celebrations record' })
   async create_celebrations(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('parentId', ParseUUIDPipe) parentId: string,
     @Body() dto: MessageDto,
   ) {
     return this.hr.mutate(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'celebrations',
       null,
       { ...dto, employeeId: parentId },
@@ -1754,13 +1709,12 @@ export class HrController {
   @ApiOperation({ summary: 'Get employees details and calculated statistics' })
   async detail_employees(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.employee(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       id,
       q.date,
     );
@@ -1770,13 +1724,12 @@ export class HrController {
   @ApiOperation({ summary: 'Get roles details and calculated statistics' })
   async detail_roles(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.role(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       id,
       q.date,
     );
@@ -1786,12 +1739,11 @@ export class HrController {
   @ApiOperation({ summary: 'Get payroll details and calculated statistics' })
   async detail_payroll(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.hr.payroll(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       id,
     );
   }
@@ -1799,12 +1751,11 @@ export class HrController {
   @ApiOperation({ summary: 'request-update documents' })
   async documents_request_update(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.hr.action(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'documents',
       id,
       'request-update',
@@ -1814,12 +1765,11 @@ export class HrController {
   @ApiOperation({ summary: 'dismiss documents' })
   async documents_dismiss(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.hr.action(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'documents',
       id,
       'dismiss',
@@ -1829,12 +1779,11 @@ export class HrController {
   @ApiOperation({ summary: 'finalize payroll' })
   async payroll_finalize(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.hr.action(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'payroll',
       id,
       'finalize',
@@ -1844,12 +1793,11 @@ export class HrController {
   @ApiOperation({ summary: 'close requisitions' })
   async requisitions_close(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.hr.action(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'requisitions',
       id,
       'close',
@@ -1862,13 +1810,12 @@ export class HrController {
   })
   async rsvp(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RsvpDto,
   ) {
     return this.hr.action(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       'calendar',
       id,
       'rsvp',
@@ -1882,13 +1829,12 @@ export class HrController {
   })
   async record(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('kind') kind: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.hr.detail(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       kind,
       id,
     );
@@ -1899,12 +1845,11 @@ export class HrController {
   })
   async duplicateRole(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.hr.rpc('hr_duplicate_role', {
       p_actor: req.user.id,
-      p_org: await this.hr.organization(req.user.id, h),
+      p_org: await this.hr.organization(req.user.id, this.orgHeader(req)),
       p_role: id,
     });
   }
@@ -1914,12 +1859,11 @@ export class HrController {
   })
   async chart(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.hr.rpc('hr_department_chart', {
       p_actor: req.user.id,
-      p_org: await this.hr.organization(req.user.id, h),
+      p_org: await this.hr.organization(req.user.id, this.orgHeader(req)),
       p_department: id,
     });
   }
@@ -1930,12 +1874,11 @@ export class HrController {
   })
   async chain(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Body() dto: ApprovalChainDto,
   ) {
     return this.hr.rpc('hr_set_approval_chain', {
       p_actor: req.user.id,
-      p_org: await this.hr.organization(req.user.id, h),
+      p_org: await this.hr.organization(req.user.id, this.orgHeader(req)),
       p_kind: dto.kind,
       p_approvers: dto.approverIds,
     });
@@ -1946,12 +1889,11 @@ export class HrController {
   })
   async bulkDocuments(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Body() dto: BulkIdsDto,
   ) {
     return this.hr.rpc('hr_document_updates', {
       p_actor: req.user.id,
-      p_org: await this.hr.organization(req.user.id, h),
+      p_org: await this.hr.organization(req.user.id, this.orgHeader(req)),
       p_ids: dto.ids,
     });
   }
@@ -1961,12 +1903,11 @@ export class HrController {
   })
   async activity(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.hr.rpc('hr_activity_detail', {
       p_actor: req.user.id,
-      p_org: await this.hr.organization(req.user.id, h),
+      p_org: await this.hr.organization(req.user.id, this.orgHeader(req)),
       p_id: id,
     });
   }
@@ -1976,12 +1917,11 @@ export class HrController {
   })
   async trends(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Query() q: HrQueryDto,
   ) {
     return this.hr.rpc('hr_trends', {
       p_actor: req.user.id,
-      p_org: await this.hr.organization(req.user.id, h),
+      p_org: await this.hr.organization(req.user.id, this.orgHeader(req)),
       p_date: q.date ?? null,
     });
   }
@@ -1989,11 +1929,10 @@ export class HrController {
   @ApiOperation({ summary: 'Configured approver chains' })
   async chains(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
   ) {
     return this.hr.chains(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
     );
   }
   @Post('calendar/:id/zoom')
@@ -2003,12 +1942,11 @@ export class HrController {
   })
   async zoomMeeting(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.zoom.create(
       req.user.id,
-      await this.hr.organization(req.user.id, h),
+      await this.hr.organization(req.user.id, this.orgHeader(req)),
       id,
     );
   }
@@ -2019,13 +1957,12 @@ export class HrController {
   })
   async resubmit(
     @Req() req: RequestWithUser,
-    @Headers('x-organization-id') h: string | undefined,
     @Param('kind') kind: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.hr.rpc('hr_resubmit', {
       p_actor: req.user.id,
-      p_org: await this.hr.organization(req.user.id, h),
+      p_org: await this.hr.organization(req.user.id, this.orgHeader(req)),
       p_kind: kind,
       p_id: id,
     });
