@@ -67,17 +67,26 @@ export class HrQueryDto {
   @IsString()
   @MaxLength(100)
   search?: string;
-  @ApiPropertyOptional({ type: Number, default: 1 })
+  @ApiPropertyOptional({
+    type: Number,
+    description: 'Page number; omit with limit to return one full page',
+  })
   @Type(() => Number)
+  @IsOptional()
   @IsInt()
   @Min(1)
-  page = 1;
-  @ApiPropertyOptional({ type: Number, default: 50, maximum: 100 })
+  page?: number;
+  @ApiPropertyOptional({
+    type: Number,
+    maximum: 100,
+    description: 'Page size; omit to return the entire list',
+  })
   @Type(() => Number)
+  @IsOptional()
   @IsInt()
   @Min(1)
   @Max(100)
-  limit = 50;
+  limit?: number;
 }
 export class EmployeeDto {
   @ApiProperty({

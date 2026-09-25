@@ -118,7 +118,8 @@ describe('HR contract', () => {
       const page = doc.paths['/employer/hr/employees'].get?.parameters?.find(
         (p) => 'name' in p && p.name === 'page',
       );
-      expect(page).toMatchObject({ schema: { type: 'number', default: 1 } });
+      expect(page).toMatchObject({ schema: { type: 'number' } });
+      expect(page && 'required' in page ? page.required : undefined).toBeFalsy();
       expect(schema).toBeUndefined();
     } finally {
       await app.close();

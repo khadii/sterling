@@ -92,10 +92,13 @@ export class HrService {
         p_org: org,
         p_permission: 'payroll.view',
       }));
+    const page = q.page ?? 1;
     let request = this.supabase.adminClient
       .from(resource.table)
       .select('*', { count: 'exact' })
       .eq('organization_id', org);
+    if (q.limit)
+      request = request.range((page - 1) * q.limit, page * q.limit - 1);
     if (
       q.employeeId &&
       ![
@@ -145,21 +148,21 @@ export class HrService {
 
     const { data, error, count } = await request
       .order('id')
-      .range((q.page - 1) * q.limit, q.page * q.limit - 1)
       .abortSignal(AbortSignal.timeout(10000));
     if (error) throw mapDatabaseError(error, 'list HR records');
+    const rows = (data ?? []) as Record<string, unknown>[];
     return {
       items: camel(
         hideSalary
-          ? ((data ?? []) as Record<string, unknown>[]).map((row) => ({
+          ? rows.map((row) => ({
               ...row,
               annual_salary: null,
             }))
-          : (data ?? []),
+          : rows,
       ),
       total: count ?? 0,
-      page: q.page,
-      limit: q.limit,
+      page,
+      limit: q.limit ?? rows.length,
     };
   }
   mutate(

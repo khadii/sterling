@@ -29,8 +29,9 @@ export function mapDatabaseError(error: PostgrestError, action: string) {
     error.code === '57P01' ||
     error.code.startsWith('PGRST0')
   ) {
+    const reason = error.message ? ` (${error.message})` : '';
     return new ServiceUnavailableException(
-      'Database is temporarily unavailable',
+      `Database is temporarily unavailable${reason}`,
     );
   }
   return new InternalServerErrorException(`Unable to ${action.toLowerCase()}`);
