@@ -180,7 +180,7 @@ export class DepartmentIconsService {
       { p_user_id: userId, p_upload_id: upload.id } as never,
     );
     if (confirmed.error) {
-      if (confirmed.error.code === '40001')
+      if (['PT409', '40001'].includes(confirmed.error.code))
         throw new ConflictException('Icon upload expired');
       throw mapDatabaseError(confirmed.error, 'confirm department icon');
     }

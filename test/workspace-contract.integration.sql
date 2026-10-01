@@ -14,7 +14,7 @@ begin
  set local role service_role;
  result:=set_department_members(actor,org,dep,array[member],0);
  if (result->>'membershipRevision')::integer<>1 then raise exception 'Revision not incremented'; end if;
- begin perform set_department_members(actor,org,dep,'{}',0);raise exception 'Stale overwrite accepted';exception when serialization_failure then null;end;
+ begin perform set_department_members(actor,org,dep,'{}',0);raise exception 'Stale overwrite accepted';exception when sqlstate 'PT409' then null;end;
  perform change_workspace_member(actor,org,'department',dep,actor,true);
  if (select count(*) from organization_department_members where department_id=dep)<>2 then raise exception 'Delta lost another member'; end if;
  perform transfer_department_member(actor,org,member,dep,dest);
@@ -25,11 +25,11 @@ begin
  if jsonb_array_length(snapshot->'memberIds')<>1 then raise exception 'Snapshot missing';end if;
  result:=workflow_mutate(actor,org,'role.save',null,'{"name":"Engineer","status":"active","permissionIds":["workspace.view"]}');role_id:=(result->>'id')::uuid;version:=(result->>'revision')::integer;
  result:=workflow_mutate(actor,org,'role.permissions',role_id,jsonb_build_object('permissionIds',array['workspace.view','teams.view'],'expectedRevision',version));
- begin perform workflow_mutate(actor,org,'role.permissions',role_id,jsonb_build_object('permissionIds','[]'::jsonb,'expectedRevision',version));raise exception 'Stale grant overwrite';exception when serialization_failure then null;end;
+ begin perform workflow_mutate(actor,org,'role.permissions',role_id,jsonb_build_object('permissionIds','[]'::jsonb,'expectedRevision',version));raise exception 'Stale grant overwrite';exception when sqlstate 'PT409' then null;end;
  result:=workflow_mutate(actor,org,'team.save',null,jsonb_build_object('name','Backend','departmentId',dep,'memberIds',array[member]));team_id:=(result->>'id')::uuid;
  snapshot:=workspace_membership_snapshot(actor,org,'team',team_id);version:=(snapshot->>'membership_revision')::integer;
  perform change_workspace_member(actor,org,'team',team_id,actor,true);
- begin perform workflow_mutate(actor,org,'team.members',team_id,jsonb_build_object('memberIds','[]'::jsonb,'expectedRevision',version));raise exception 'Stale team overwrite';exception when serialization_failure then null;end;
+ begin perform workflow_mutate(actor,org,'team.members',team_id,jsonb_build_object('memberIds','[]'::jsonb,'expectedRevision',version));raise exception 'Stale team overwrite';exception when sqlstate 'PT409' then null;end;
  result:=create_organization_invitation(actor,org,'guest@contract.invalid',array[role_id],dep,'contract-token-hash','opaque-test-token');
  perform accept_organization_invitation(guest,'contract-token-hash');
  if not exists(select 1 from organization_department_members where department_id=dep and user_id=guest) then raise exception 'Invitation broke with revised department function';end if;

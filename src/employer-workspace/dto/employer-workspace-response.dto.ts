@@ -1,3 +1,4 @@
+import { ReadRelationsDto } from '../../common/dto/read-relations.dto';
 import {
   HrSummaryDto,
   HrDepartmentMetricsDto,
@@ -27,7 +28,7 @@ export class ActivitySubjectResponseDto {
   @ApiProperty({ format: 'uuid', example: EVENT_ID }) id!: string;
 }
 
-export class ActivityResponseDto {
+export class ActivityResponseDto extends ReadRelationsDto {
   @ApiProperty({
     format: 'uuid',
     example: 'c6b3b90b-72f1-464f-8215-2153a88de13a',
@@ -76,13 +77,13 @@ export class ActivityListResponseDto {
   nextCursor!: string | null;
 }
 
-export class CalendarAttendeeResponseDto {
+export class CalendarAttendeeResponseDto extends ReadRelationsDto {
   @ApiProperty({ format: 'uuid', example: USER_ID }) userId!: string;
   @ApiProperty({ enum: AttendeeResponse, example: AttendeeResponse.ACCEPTED })
   response!: string;
 }
 
-export class CalendarEventResponseDto {
+export class CalendarEventResponseDto extends ReadRelationsDto {
   @ApiPropertyOptional({
     type: Object,
     description: 'Permission-checked HR source detail, present on GET by ID',

@@ -69,7 +69,8 @@ export class HrQueryDto {
   search?: string;
   @ApiPropertyOptional({
     type: Number,
-    description: 'Page number; omit with limit to return one full page',
+    description:
+      'Optional page number. Omit both page and limit to return all matching records; page alone uses 50 per page.',
   })
   @Type(() => Number)
   @IsOptional()
@@ -79,7 +80,8 @@ export class HrQueryDto {
   @ApiPropertyOptional({
     type: Number,
     maximum: 100,
-    description: 'Page size; omit to return the entire list',
+    description:
+      'Optional page size. Omit both page and limit to return all matching records, including beyond the database row limit.',
   })
   @Type(() => Number)
   @IsOptional()

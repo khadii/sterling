@@ -1,3 +1,4 @@
+import { ReadRelationsDto } from '../common/dto/read-relations.dto';
 import { HrRoleStatsDto, HrTeamMetricsDto } from '../hr/hr-response.dto';
 import {
   ApiProperty,
@@ -10,7 +11,7 @@ import {
   CreateTaskDto,
   CreateTeamDto,
 } from './workflow.dto';
-export class WorkflowIdentityDto {
+export class WorkflowIdentityDto extends ReadRelationsDto {
   @ApiProperty({
     format: 'uuid',
     example: 'da0ea39c-2cbb-4216-a460-e65b8b349c53',
@@ -31,6 +32,31 @@ export class WorkflowRoleResponseDto extends IntersectionType(
   @ApiProperty({ example: 'custom_da0ea39c2cbb4216a460e65b8b349c53' })
   key!: string;
   @ApiProperty({ example: false }) isSystem!: boolean;
+}
+export class WorkflowRoleHistoryDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty({ format: 'uuid' }) organizationId!: string;
+  @ApiProperty({ format: 'uuid' }) roleId!: string;
+  @ApiProperty({
+    format: 'uuid',
+    description: 'Whose save produced this audit entry',
+  })
+  actorId!: string;
+  @ApiPropertyOptional({
+    type: Object,
+    description:
+      'Resolved profile: id, displayName, avatarUrl and email of the actor.',
+  })
+  actor?: Record<string, unknown> | null;
+  @ApiProperty({ example: 'role.save' }) action!: string;
+  @ApiProperty({
+    type: Object,
+    description: 'The fields this save submitted, including permissionIds when replaced.',
+  })
+  changes!: Record<string, unknown>;
+  @ApiProperty({ type: 'integer', minimum: 0 }) previousRevision!: number;
+  @ApiProperty({ type: 'integer', minimum: 0 }) newRevision!: number;
+  @ApiProperty({ format: 'date-time' }) createdAt!: string;
 }
 export class WorkflowTeamResponseDto extends IntersectionType(
   WorkflowIdentityDto,

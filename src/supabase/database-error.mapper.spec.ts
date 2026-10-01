@@ -13,6 +13,8 @@ function error(code: string): PostgrestError {
 
 describe('mapDatabaseError', () => {
   it.each([
+    ['PT409', HttpStatus.CONFLICT],
+    ['40001', HttpStatus.CONFLICT],
     ['23505', HttpStatus.CONFLICT],
     ['23503', HttpStatus.BAD_REQUEST],
     ['42501', HttpStatus.FORBIDDEN],

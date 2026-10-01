@@ -78,8 +78,9 @@ begin
  perform hr_action(other,org,'calendar',req,'rsvp','{"response":"accepted"}');
  if (select attendees#>>'{0,response}' from calendar_events where id=req) is distinct from 'accepted' then raise exception 'RSVP not saved';end if;
  begin perform hr_action(actor,org,'calendar',req,'rsvp','{"response":"accepted"}');raise exception 'Non attendee RSVP allowed';exception when insufficient_privilege then null;end;
- result:=hr_claim_zoom(actor,org,req);begin perform hr_claim_zoom(actor,org,req);raise exception 'Duplicate Zoom creation allowed';exception when serialization_failure then null;end;
+ result:=hr_claim_zoom(actor,org,req);begin perform hr_claim_zoom(actor,org,req);raise exception 'Duplicate Zoom creation allowed';exception when sqlstate 'PT409' then null;end;
  perform hr_finish_zoom(actor,org,req,'123','https://zoom.us/j/123');
+ begin perform hr_finish_zoom(actor,org,req,'456','https://zoom.us/j/456');raise exception 'Concurrent Zoom URL overwritten';exception when sqlstate 'PT409' then null;end;
  if hr_claim_zoom(actor,org,req)->>'existingUrl' is distinct from 'https://zoom.us/j/123' then raise exception 'Zoom URL not reused';end if;
  perform hr_mutate(actor,org,'documents',null,jsonb_build_object('employee_id',employee,'name','Passport','expires_on',hr_today(org)));
  perform queue_notification_reminders();select count(*) into attendance_count from notification_outbox;

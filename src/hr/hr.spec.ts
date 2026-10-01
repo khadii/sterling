@@ -114,12 +114,27 @@ describe('HR contract', () => {
       expect(doc.components?.schemas?.HrSummaryDto).toMatchObject({
         properties: { headcount: { type: 'number', example: 0 } },
       });
+      expect(doc.components?.schemas?.HrEmployeeResponseDto).toMatchObject({
+        properties: {
+          displayName: { type: 'string', nullable: true },
+          departmentName: { type: 'string', nullable: true },
+          roleName: { type: 'string', nullable: true },
+          annualSalary: { type: 'number', nullable: true },
+        },
+      });
+      expect(
+        JSON.stringify(
+          doc.paths['/employer/hr/employees'].get?.responses['200'],
+        ),
+      ).toContain('#/components/schemas/HrEmployeeResponseDto');
       const schema = doc.components?.schemas?.HrQueryDto; // Query fields are flattened by Nest.
       const page = doc.paths['/employer/hr/employees'].get?.parameters?.find(
         (p) => 'name' in p && p.name === 'page',
       );
       expect(page).toMatchObject({ schema: { type: 'number' } });
-      expect(page && 'required' in page ? page.required : undefined).toBeFalsy();
+      expect(
+        page && 'required' in page ? page.required : undefined,
+      ).toBeFalsy();
       expect(schema).toBeUndefined();
     } finally {
       await app.close();

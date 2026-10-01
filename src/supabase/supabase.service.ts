@@ -22,12 +22,14 @@ export class SupabaseService {
     };
     this.publicClient = createClient(this.url, this.publishableKey, {
       auth,
+      // Business conflicts must reach callers without replaying stale mutations.
+      db: { retry: false },
       global: { fetch: supabaseFetch },
     });
     this.adminClient = createClient(
       this.url,
       config.getOrThrow<string>('SUPABASE_SECRET_KEY'),
-      { auth, global: { fetch: supabaseFetch } },
+      { auth, db: { retry: false }, global: { fetch: supabaseFetch } },
     );
   }
 
@@ -38,6 +40,7 @@ export class SupabaseService {
         autoRefreshToken: false,
         detectSessionInUrl: false,
       },
+      db: { retry: false },
       global: {
         fetch: supabaseFetch,
         headers: { Authorization: `Bearer ${accessToken}` },

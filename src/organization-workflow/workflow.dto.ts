@@ -241,15 +241,6 @@ export class RoleBenefitsDto {
   benefits?: string[];
 }
 export class CreateRoleDto {
-  @ApiPropertyOptional({
-    type: 'integer',
-    minimum: 0,
-    description: 'Required when replacing permissions on an existing role',
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  expectedRevision?: number;
   @ApiProperty({ example: 'Senior Backend Engineer' })
   @Transform(trim)
   @IsString()
@@ -336,16 +327,29 @@ export class CreateRoleDto {
   @MaxLength(100, { each: true })
   permissionIds?: string[];
 }
-export class UpdateRoleDto extends PartialType(CreateRoleDto) {}
-export class PermissionsDto {
-  @ApiProperty({
+export class UpdateRoleDto extends PartialType(CreateRoleDto) {
+  @ApiPropertyOptional({
     type: 'integer',
     minimum: 0,
-    description: 'revision returned by the role',
+    description:
+      'Optional optimistic-concurrency token. Omit it to apply the change directly; supply the latest revision from GET /organization/roles/{roleId} to reject the write with 409 when the role changed since it was loaded. Never hardcode 0.',
   })
+  @IsOptional()
   @IsInt()
   @Min(0)
-  expectedRevision!: number;
+  expectedRevision?: number;
+}
+export class PermissionsDto {
+  @ApiPropertyOptional({
+    type: 'integer',
+    minimum: 0,
+    description:
+      'Optional optimistic-concurrency token. Omit it to replace permissions directly; supply the latest revision from GET /organization/roles/{roleId} to get a 409 when the role changed since it was loaded. Never hardcode 0.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  expectedRevision?: number;
   @ApiProperty({ type: [String], example: ['teams.view', 'teams.manage'] })
   @IsArray()
   @ArrayUnique()

@@ -8,7 +8,7 @@ import {
 import { PostgrestError } from '@supabase/supabase-js';
 
 export function mapDatabaseError(error: PostgrestError, action: string) {
-  if (error.code === '40001')
+  if (error.code === 'PT409' || error.code === '40001')
     return new ConflictException(
       'The resource changed. Reload it and retry with its current revision.',
     );

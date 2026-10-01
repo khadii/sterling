@@ -12,7 +12,7 @@ export function onboardingError(
 }
 
 export function mapOnboardingDatabaseError(error: PostgrestError) {
-  if (error.code === '40001') {
+  if (error.code === 'PT409' || error.code === '40001') {
     return onboardingError(
       'This draft was updated elsewhere; reload it before saving again',
       HttpStatus.CONFLICT,

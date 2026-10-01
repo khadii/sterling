@@ -1,4 +1,14 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ReadRelationsDto,
+  RelatedPersonDto,
+  RelatedNameDto,
+} from '../common/dto/read-relations.dto';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  IntersectionType,
+  OmitType,
+} from '@nestjs/swagger';
 import { EmployeeDto, OnboardingItemDto } from './hr.dto';
 export class HrSummaryDto {
   @ApiProperty({ example: 0 }) headcount!: number;
@@ -114,6 +124,9 @@ export class HrRoleMemberDto extends HrPersonDto {
   @ApiProperty({ format: 'date', example: '2026-09-21' }) startsOn!: string;
 }
 export class HrRoleStatsDto {
+  @ApiPropertyOptional({ type: RelatedNameDto, nullable: true })
+  role?: RelatedNameDto | null;
+  @ApiPropertyOptional({ format: 'uuid' }) roleId?: string;
   @ApiProperty({ example: 0 }) totalPositions!: number;
   @ApiProperty({ example: 0 }) plannedPositions!: number;
   @ApiProperty({ example: 0 }) filledPositions!: number;
@@ -128,6 +141,8 @@ export class HrRoleStatsDto {
   @ApiProperty({ type: [HrRoleMemberDto] }) members!: HrRoleMemberDto[];
 }
 export class HrOnboardingStatsDto {
+  @ApiPropertyOptional({ type: RelatedPersonDto, nullable: true })
+  buddy?: RelatedPersonDto | null;
   @ApiProperty({ type: [OnboardingItemDto] }) checklist!: OnboardingItemDto[];
   @ApiProperty({ example: 0 }) completedItems!: number;
   @ApiProperty({ example: 0 }) totalItems!: number;
@@ -156,8 +171,34 @@ export class HrEmployeeAttendanceDto {
   @ApiProperty({ example: 0 }) approvedDays!: number;
   @ApiProperty({ example: 0 }) approvedHours!: number;
 }
+export class HrEmployeeResponseDto extends IntersectionType(
+  OmitType(EmployeeDto, ['annualSalary'] as const),
+  ReadRelationsDto,
+) {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty({ format: 'uuid' }) organizationId!: string;
+  @ApiProperty({ example: 0 }) revision!: number;
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: 0,
+    description: 'Null without payroll.view; a saved zero remains 0.',
+  })
+  annualSalary!: number | null;
+  @ApiProperty({ type: String, nullable: true, example: 'Ada Okafor' })
+  displayName!: string | null;
+  @ApiProperty({ type: String, nullable: true, example: 'ada@example.com' })
+  email!: string | null;
+  @ApiProperty({ type: String, nullable: true, example: null }) avatarUrl!:
+    string | null;
+  @ApiProperty({ type: String, nullable: true, example: 'Engineering' })
+  departmentName!: string | null;
+  @ApiProperty({ type: String, nullable: true, example: 'Engineer' })
+  roleName!: string | null;
+}
 export class HrEmployeeStatsDto {
-  @ApiProperty({ type: EmployeeDto }) employee!: EmployeeDto;
+  @ApiProperty({ type: HrEmployeeResponseDto })
+  employee!: HrEmployeeResponseDto;
   @ApiProperty({ type: [HrLeaveBalanceDto] })
   leaveBalances!: HrLeaveBalanceDto[];
   @ApiProperty({ type: HrOnboardingStatsDto })
@@ -166,7 +207,7 @@ export class HrEmployeeStatsDto {
   attendance!: HrEmployeeAttendanceDto;
   @ApiProperty({ example: 0 }) pendingReviews!: number;
 }
-export class HrPayrollLineResponseDto {
+export class HrPayrollLineResponseDto extends ReadRelationsDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) employeeId!: string;
   @ApiProperty({ format: 'uuid' }) payrollId!: string;

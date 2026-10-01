@@ -1,5 +1,7 @@
+import { enrichReadRows } from '../common/read-relations';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -47,7 +49,14 @@ export class WorkflowService {
     id: string | null,
     data: object,
   ) {
+    // Transformed DTOs can own optional fields whose value is undefined.
+    // Match JSON semantics before deciding which fields the caller supplied.
+    data = Object.fromEntries(
+      Object.entries(data).filter(([, value]) => value !== undefined),
+    );
     this.validateNulls(data);
+    const roleWrite = action === 'role.save' || action === 'role.permissions';
+
     if (action === 'role.save' && Object.hasOwn(data, 'iconId')) {
       const iconId = (data as Row).iconId;
       if (iconId !== null) {
@@ -65,13 +74,68 @@ export class WorkflowService {
         p_data: data,
       } as never)
       .abortSignal(AbortSignal.timeout(15000));
+    if (error && ['PT409', '40001'].includes(error.code) && roleWrite) {
+      if (!id) {
+        // Creation has no existing revision. Do not mislabel a transaction conflict.
+        throw new ConflictException({
+          message:
+            'Role creation conflicted with another operation. Reload the role list to check whether it was created before submitting again.',
+          error: 'Conflict',
+          code: 'ROLE_CREATION_CONFLICT',
+        });
+      }
+      let currentRevision: number | null = null;
+      // This specific guard runs only after the RPC authorizes roles.manage.
+      if (
+        error.code === 'PT409' &&
+        error.message ===
+          'Membership or permissions changed; reload before saving'
+      ) {
+        try {
+          const current = await withRequestDeadline(
+            this.supabase.adminClient
+              .from('organization_roles')
+              .select('revision')
+              .eq('organization_id', org)
+              .eq('id', id)
+              .abortSignal(AbortSignal.timeout(3000))
+              .maybeSingle(),
+            3000,
+          );
+          const row = current.data as { revision?: number } | null;
+          if (!current.error && Number.isInteger(row?.revision))
+            currentRevision = row!.revision!;
+        } catch {
+          // Preserve the original conflict if the optional revision lookup fails.
+        }
+      }
+      throw new ConflictException({
+        message:
+          'Role changed since this form was loaded. Reload the role for its latest state and retry; expectedRevision is optional and can be omitted to save directly.',
+        error: 'Conflict',
+        code: 'ROLE_REVISION_CONFLICT',
+        details: {
+          roleId: id,
+          expectedRevision: (data as Row).expectedRevision ?? null,
+          currentRevision,
+          reloadUrl: '/api/v1/organization/roles/' + id,
+        },
+      });
+    }
     if (error?.code === 'P0002')
       throw new NotFoundException('Resource not found in this workspace');
+    if (error && error.code === '22023') {
+      // Preserve the specific validation reason the SQL function raised,
+      // e.g. which required fields block activating a department role.
+      throw new BadRequestException(
+        typeof error.message === 'string' && error.message
+          ? error.message
+          : 'Invalid workflow data: check required fields, ranges, references and role status',
+      );
+    }
     if (
       error &&
-      ['22023', '23514', '23502', '22P02', '22007', '22008'].includes(
-        error.code,
-      )
+      ['23514', '23502', '22P02', '22007', '22008'].includes(error.code)
     )
       throw new BadRequestException(
         'Invalid workflow data: check required fields, ranges, references and role status',
@@ -100,7 +164,11 @@ export class WorkflowService {
         } as never)
         .abortSignal(AbortSignal.timeout(10000));
       if (error) throw mapDatabaseError(error, 'load team directory');
-      return data;
+      const directory = data as { items: Row[] };
+      return {
+        ...directory,
+        items: await enrichReadRows(this.supabase, org, directory.items ?? []),
+      };
     }
     let request = this.supabase.adminClient
       .from(tables[entity])
@@ -151,7 +219,11 @@ export class WorkflowService {
           .map((g) => g.permission_id);
     }
     return {
-      items: rows.map((r) => this.response(r)),
+      items: await enrichReadRows(
+        this.supabase,
+        org,
+        rows.map((r) => this.response(r)),
+      ),
       total: count ?? 0,
       page: query.page,
       limit: query.limit,
@@ -186,7 +258,8 @@ export class WorkflowService {
         entity === 'roles'
           ? stats
           : ((stats as Row).teams as Row[]).find((t) => t.id === id);
-      return detail;
+      const [enriched] = await enrichReadRows(this.supabase, org, [detail]);
+      return enriched;
     }
     await this.access(userId, org, `${entity}.view`);
     const { data, error } = await this.supabase.adminClient
@@ -223,7 +296,8 @@ export class WorkflowService {
         percent: total ? Math.round((done / total) * 100) : 0,
       };
     }
-    return result;
+    const [enriched] = await enrichReadRows(this.supabase, org, [result]);
+    return enriched;
   }
 
   async members(
@@ -291,6 +365,27 @@ export class WorkflowService {
     };
   }
 
+  async roleHistory(userId: string, org: string, roleId: string) {
+    await this.access(userId, org, 'roles.view');
+    const { data, error } = await this.supabase.adminClient
+      .from('organization_role_history')
+      .select('*')
+      .eq('organization_id', org)
+      .eq('role_id', roleId)
+      .order('created_at', { ascending: false })
+      .order('id')
+      .limit(100)
+      .abortSignal(AbortSignal.timeout(10000));
+    if (error) throw mapDatabaseError(error, 'load role history');
+    return {
+      items: await enrichReadRows(
+        this.supabase,
+        org,
+        ((data as Row[]) ?? []).map((r) => this.response(r)),
+      ),
+    };
+  }
+
   async taskChildren(
     userId: string,
     org: string,
@@ -310,7 +405,11 @@ export class WorkflowService {
       .abortSignal(AbortSignal.timeout(10000));
     if (error) throw mapDatabaseError(error, `load task ${kind}`);
     return {
-      items: (data as Row[]).map((r) => this.response(r)),
+      items: await enrichReadRows(
+        this.supabase,
+        org,
+        (data as Row[]).map((r) => this.response(r)),
+      ),
       total: count ?? 0,
       page: query.page,
       limit: query.limit,

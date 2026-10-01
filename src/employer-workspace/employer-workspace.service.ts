@@ -1,3 +1,4 @@
+import { enrichReadRows } from '../common/read-relations';
 import { HrService } from '../hr/hr.service';
 import { withRequestDeadline } from '../supabase/request-timeout';
 import { resolveOrganization } from '../organization-context/resolve-organization';
@@ -140,10 +141,14 @@ export class EmployerWorkspaceService {
         })
       : {};
     return {
-      items: items.map((row) => ({
-        ...this.activityResponse(row),
-        availableActions: actions[String(row.id)] ?? [],
-      })),
+      items: await enrichReadRows(
+        this.supabase,
+        query.organizationId,
+        items.map((row) => ({
+          ...this.activityResponse(row),
+          availableActions: actions[String(row.id)] ?? [],
+        })),
+      ),
       refreshAfterSeconds: 15,
       nextCursor:
         hasMore && last
@@ -226,16 +231,17 @@ export class EmployerWorkspaceService {
     const { data, error } = await request;
     if (error) throw mapDatabaseError(error, 'load calendar events');
     return {
-      items: ((data ?? []) as Row[]).map((row) => this.eventResponse(row)),
+      items: await this.eventResponses(query.organizationId, data ?? []),
     };
   }
 
   async calendarEvent(userId: string, eventId: string, organizationId: string) {
     await this.requireAccess(userId, organizationId, 'calendar.view');
     const row = await this.getEvent(eventId, organizationId);
+    const [event] = await this.eventResponses(organizationId, [row]);
     return {
-      ...this.eventResponse(row),
-      details: await this.hr.rpc('hr_event_details', {
+      ...event,
+      details: await this.hr.readRpc('hr_event_details', {
         p_actor: userId,
         p_org: organizationId,
         p_event: eventId,
@@ -590,6 +596,27 @@ export class EmployerWorkspaceService {
     return new Date(
       candidate.getTime() - (represented - candidate.getTime()),
     ).toISOString();
+  }
+
+  private async eventResponses(org: string, rows: Row[]) {
+    const events = rows.map((row) => this.eventResponse(row));
+    const attendees = events.flatMap(
+      (event) => (event.attendees ?? []) as Row[],
+    );
+    const enriched = await enrichReadRows(this.supabase, org, [
+      ...events,
+      ...attendees,
+    ]);
+    let offset = events.length;
+    return events.map((event, index) => {
+      const count = ((event.attendees ?? []) as Row[]).length;
+      const result = {
+        ...enriched[index],
+        attendees: enriched.slice(offset, offset + count),
+      };
+      offset += count;
+      return result;
+    });
   }
 
   private eventResponse(row: Row) {

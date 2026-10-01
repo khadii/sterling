@@ -1,12 +1,19 @@
 import {
+  enrichReadRows,
+  enrichReadTree,
+  ReadRow,
+} from '../common/read-relations';
+import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { resolveOrganization } from '../organization-context/resolve-organization';
 import { mapDatabaseError } from '../supabase/database-error.mapper';
 import { HrQueryDto } from './hr.dto';
+import { withRequestDeadline } from '../supabase/request-timeout';
 const resources: Record<string, { table: string; permission: string }> = {
   employees: { table: 'hr_employees', permission: 'employees.view' },
   onboarding: { table: 'hr_onboarding', permission: 'employees.manage' },
@@ -77,6 +84,11 @@ export class HrService {
     if (error) throw mapDatabaseError(error, 'process HR request');
     return camel(data) as T;
   }
+  async readRpc(name: string, args: { p_org: string; [key: string]: unknown }) {
+    const result = await this.rpc(name, args);
+    return enrichReadTree(this.supabase, args.p_org, result);
+  }
+
   async list(actor: string, org: string, kind: string, q: HrQueryDto) {
     const resource = resources[kind];
     if (!resource) throw new NotFoundException('Unknown HR resource');
@@ -92,77 +104,112 @@ export class HrService {
         p_org: org,
         p_permission: 'payroll.view',
       }));
+    const paginated = q.page !== undefined || q.limit !== undefined;
     const page = q.page ?? 1;
-    let request = this.supabase.adminClient
-      .from(resource.table)
-      .select('*', { count: 'exact' })
-      .eq('organization_id', org);
-    if (q.limit)
-      request = request.range((page - 1) * q.limit, page * q.limit - 1);
-    if (
-      q.employeeId &&
-      ![
-        'employees',
-        'payroll',
-        'interviews',
-        'requisitions',
-        'department-plans',
-        'team-plans',
-      ].includes(kind)
-    )
-      request = request.eq('employee_id', q.employeeId);
-    if (q.departmentId && kind === 'employees')
-      request = request.eq('department_id', q.departmentId);
-    if (q.payrollId && kind === 'payroll-lines')
-      request = request.eq('payroll_id', q.payrollId);
-    if (q.date && kind === 'attendance') request = request.eq('date', q.date);
-    if (
-      q.status &&
-      [
-        'leave',
-        'attendance',
-        'reviews',
-        'expenses',
-        'payroll',
-        'requisitions',
-      ].includes(kind)
-    )
-      request = request.eq('status', q.status);
-    if (q.search) {
-      const column =
-        kind === 'documents'
-          ? 'name'
-          : kind === 'interviews'
-            ? 'candidate_name'
-            : null;
-      if (column)
-        request = request.ilike(
-          column,
-          `%${q.search.replace(/[\\%_]/g, '\\$&')}%`,
-        );
-      else
-        throw new BadRequestException(
-          'Search is available for documents and interviews; use the workspace member picker to find employees by name or role',
-        );
-    }
+    const pageSize = paginated ? (q.limit ?? 50) : 500;
+    const signal = AbortSignal.timeout(30000);
+    const loadPage = (from: number, to: number) => {
+      let request = this.supabase.adminClient
+        .from(resource.table)
+        .select('*', { count: 'exact' })
+        .eq('organization_id', org);
+      if (
+        q.employeeId &&
+        ![
+          'employees',
+          'payroll',
+          'interviews',
+          'requisitions',
+          'department-plans',
+          'team-plans',
+        ].includes(kind)
+      )
+        request = request.eq('employee_id', q.employeeId);
+      if (q.departmentId && kind === 'employees')
+        request = request.eq('department_id', q.departmentId);
+      if (q.payrollId && kind === 'payroll-lines')
+        request = request.eq('payroll_id', q.payrollId);
+      if (q.date && kind === 'attendance') request = request.eq('date', q.date);
+      if (
+        q.status &&
+        [
+          'leave',
+          'attendance',
+          'reviews',
+          'expenses',
+          'payroll',
+          'requisitions',
+        ].includes(kind)
+      )
+        request = request.eq('status', q.status);
+      if (q.search) {
+        const column =
+          kind === 'documents'
+            ? 'name'
+            : kind === 'interviews'
+              ? 'candidate_name'
+              : null;
+        if (column)
+          request = request.ilike(
+            column,
+            `%${q.search.replace(/[\\%_]/g, '\\$&')}%`,
+          );
+        else
+          throw new BadRequestException(
+            'Search is available for documents and interviews; use the workspace member picker to find employees by name or role',
+          );
+      }
 
-    const { data, error, count } = await request
-      .order('id')
-      .abortSignal(AbortSignal.timeout(10000));
-    if (error) throw mapDatabaseError(error, 'list HR records');
-    const rows = (data ?? []) as Record<string, unknown>[];
+      return withRequestDeadline(
+        request.order('id').range(from, to).abortSignal(signal),
+      );
+    };
+    const rows: Record<string, unknown>[] = [];
+    let offset = paginated ? (page - 1) * pageSize : 0;
+    let total = 0;
+    do {
+      if (signal.aborted)
+        throw new ServiceUnavailableException(
+          'List request timed out; please retry',
+        );
+      const { data, error, count } = await loadPage(
+        offset,
+        offset + pageSize - 1,
+      );
+      if (error) throw mapDatabaseError(error, 'list HR records');
+      if (!paginated && count === null) {
+        throw new ServiceUnavailableException(
+          'Unable to determine the complete list size; please retry',
+        );
+      }
+      const batch = (data ?? []) as Record<string, unknown>[];
+      total = count ?? offset + batch.length;
+      if (!batch.length && offset < total) {
+        throw new ServiceUnavailableException(
+          'Unable to load the complete list; please retry',
+        );
+      }
+      rows.push(...batch);
+      // Advance by received rows, even if the Data API cap is smaller than our batch.
+      offset += batch.length;
+      if (paginated || !batch.length) break;
+    } while (offset < total);
     return {
-      items: camel(
-        hideSalary
-          ? rows.map((row) => ({
-              ...row,
-              annual_salary: null,
-            }))
-          : rows,
+      items: await enrichReadRows(
+        this.supabase,
+        org,
+        camel(
+          hideSalary
+            ? rows.map((row) => ({
+                ...row,
+                annual_salary: null,
+              }))
+            : rows,
+        ) as ReadRow[],
       ),
-      total: count ?? 0,
+      total: paginated ? total : rows.length,
       page,
-      limit: q.limit ?? rows.length,
+      limit: paginated ? pageSize : rows.length,
     };
   }
   mutate(
@@ -227,27 +274,41 @@ export class HrService {
     });
   }
   async employee(actor: string, org: string, id: string, date?: string) {
-    return this.rpc('hr_employee_stats', {
+    const result = await this.rpc('hr_employee_stats', {
       p_actor: actor,
       p_org: org,
       p_employee: id,
       ...(date ? { p_date: date } : {}),
     });
+    const [employee, onboarding] = await enrichReadRows(this.supabase, org, [
+      result.employee as ReadRow,
+      result.onboarding as ReadRow,
+    ]);
+    return { ...result, employee, onboarding };
   }
-  role(actor: string, org: string, id: string, date?: string) {
-    return this.rpc('hr_role_stats', {
+  async role(actor: string, org: string, id: string, date?: string) {
+    const result = await this.rpc('hr_role_stats', {
       p_actor: actor,
       p_org: org,
       p_role: id,
       ...(date ? { p_date: date } : {}),
     });
+    const [summary] = await enrichReadRows(this.supabase, org, [
+      { roleId: id },
+    ]);
+    return { ...result, ...summary };
   }
-  payroll(actor: string, org: string, id: string) {
-    return this.rpc('hr_payroll_stats', {
+  async payroll(actor: string, org: string, id: string) {
+    const result = await this.rpc('hr_payroll_stats', {
       p_actor: actor,
       p_org: org,
       p_id: id,
     });
+    const [payroll, ...lines] = await enrichReadRows(this.supabase, org, [
+      result,
+      ...((result.lines ?? []) as ReadRow[]),
+    ]);
+    return { ...payroll, lines };
   }
   async detail(actor: string, org: string, kind: string, id: string) {
     if (kind === 'employees') return this.employee(actor, org, id);
@@ -267,7 +328,10 @@ export class HrService {
       .maybeSingle();
     if (error) throw mapDatabaseError(error, 'load HR detail');
     if (!data) throw new NotFoundException('HR record not found');
-    return camel(data);
+    const [result] = await enrichReadRows(this.supabase, org, [
+      camel(data) as ReadRow,
+    ]);
+    return result;
   }
   async chains(actor: string, org: string) {
     await this.rpc('hr_require', {
@@ -281,6 +345,12 @@ export class HrService {
       .eq('organization_id', org)
       .abortSignal(AbortSignal.timeout(10000));
     if (error) throw mapDatabaseError(error, 'load approval chains');
-    return { items: camel(data ?? []) };
+    return {
+      items: await enrichReadRows(
+        this.supabase,
+        org,
+        camel(data ?? []) as ReadRow[],
+      ),
+    };
   }
 }

@@ -1,3 +1,4 @@
+import { ReadRelationsDto } from '../common/dto/read-relations.dto';
 import {
   UpdateOnboardingDto,
   UpdateLeaveDto,
@@ -14,6 +15,7 @@ import {
   UpdatePayrollLineDto,
 } from './hr.dto';
 import {
+  HrEmployeeResponseDto,
   HrMetricsDto,
   HrRoleStatsDto,
   HrEmployeeStatsDto,
@@ -69,6 +71,8 @@ import {
   RsvpDto,
 } from './hr.dto';
 @ApiExtraModels(
+  ReadRelationsDto,
+  HrEmployeeResponseDto,
   EmployeeDto,
   OnboardingDto,
   LeaveDto,
@@ -110,10 +114,7 @@ export class HrController {
     summary:
       'Calculated dashboard, department and subteam metrics; zero counts are returned as 0',
   })
-  async metrics(
-    @Req() req: RequestWithUser,
-    @Query() q: HrQueryDto,
-  ) {
+  async metrics(@Req() req: RequestWithUser, @Query() q: HrQueryDto) {
     return this.hr.metrics(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -129,7 +130,8 @@ export class HrController {
           type: 'array',
           items: {
             allOf: [
-              { $ref: getSchemaPath(EmployeeDto) },
+              { $ref: getSchemaPath(ReadRelationsDto) },
+              { $ref: getSchemaPath(HrEmployeeResponseDto) },
               {
                 type: 'object',
                 properties: {
@@ -149,10 +151,7 @@ export class HrController {
     },
   })
   @ApiOperation({ summary: 'List employees records' })
-  async list_employees(
-    @Req() req: RequestWithUser,
-    @Query() q: HrQueryDto,
-  ) {
+  async list_employees(@Req() req: RequestWithUser, @Query() q: HrQueryDto) {
     return this.hr.list(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -232,6 +231,7 @@ export class HrController {
           type: 'array',
           items: {
             allOf: [
+              { $ref: getSchemaPath(ReadRelationsDto) },
               { $ref: getSchemaPath(OnboardingDto) },
               {
                 type: 'object',
@@ -252,10 +252,7 @@ export class HrController {
     },
   })
   @ApiOperation({ summary: 'List onboarding records' })
-  async list_onboarding(
-    @Req() req: RequestWithUser,
-    @Query() q: HrQueryDto,
-  ) {
+  async list_onboarding(@Req() req: RequestWithUser, @Query() q: HrQueryDto) {
     return this.hr.list(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -336,6 +333,7 @@ export class HrController {
           type: 'array',
           items: {
             allOf: [
+              { $ref: getSchemaPath(ReadRelationsDto) },
               { $ref: getSchemaPath(LeaveDto) },
               {
                 type: 'object',
@@ -356,10 +354,7 @@ export class HrController {
     },
   })
   @ApiOperation({ summary: 'List leave records' })
-  async list_leave(
-    @Req() req: RequestWithUser,
-    @Query() q: HrQueryDto,
-  ) {
+  async list_leave(@Req() req: RequestWithUser, @Query() q: HrQueryDto) {
     return this.hr.list(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -385,10 +380,7 @@ export class HrController {
     },
   })
   @ApiOperation({ summary: 'Create leave record' })
-  async create_leave(
-    @Req() req: RequestWithUser,
-    @Body() dto: LeaveDto,
-  ) {
+  async create_leave(@Req() req: RequestWithUser, @Body() dto: LeaveDto) {
     return this.hr.mutate(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -455,6 +447,7 @@ export class HrController {
           type: 'array',
           items: {
             allOf: [
+              { $ref: getSchemaPath(ReadRelationsDto) },
               { $ref: getSchemaPath(AttendanceDto) },
               {
                 type: 'object',
@@ -475,10 +468,7 @@ export class HrController {
     },
   })
   @ApiOperation({ summary: 'List attendance records' })
-  async list_attendance(
-    @Req() req: RequestWithUser,
-    @Query() q: HrQueryDto,
-  ) {
+  async list_attendance(@Req() req: RequestWithUser, @Query() q: HrQueryDto) {
     return this.hr.list(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -574,6 +564,7 @@ export class HrController {
           type: 'array',
           items: {
             allOf: [
+              { $ref: getSchemaPath(ReadRelationsDto) },
               { $ref: getSchemaPath(ReviewDto) },
               {
                 type: 'object',
@@ -594,10 +585,7 @@ export class HrController {
     },
   })
   @ApiOperation({ summary: 'List reviews records' })
-  async list_reviews(
-    @Req() req: RequestWithUser,
-    @Query() q: HrQueryDto,
-  ) {
+  async list_reviews(@Req() req: RequestWithUser, @Query() q: HrQueryDto) {
     return this.hr.list(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -623,10 +611,7 @@ export class HrController {
     },
   })
   @ApiOperation({ summary: 'Create reviews record' })
-  async create_reviews(
-    @Req() req: RequestWithUser,
-    @Body() dto: ReviewDto,
-  ) {
+  async create_reviews(@Req() req: RequestWithUser, @Body() dto: ReviewDto) {
     return this.hr.mutate(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -693,6 +678,7 @@ export class HrController {
           type: 'array',
           items: {
             allOf: [
+              { $ref: getSchemaPath(ReadRelationsDto) },
               { $ref: getSchemaPath(ExpenseDto) },
               {
                 type: 'object',
@@ -713,10 +699,7 @@ export class HrController {
     },
   })
   @ApiOperation({ summary: 'List expenses records' })
-  async list_expenses(
-    @Req() req: RequestWithUser,
-    @Query() q: HrQueryDto,
-  ) {
+  async list_expenses(@Req() req: RequestWithUser, @Query() q: HrQueryDto) {
     return this.hr.list(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -742,10 +725,7 @@ export class HrController {
     },
   })
   @ApiOperation({ summary: 'Create expenses record' })
-  async create_expenses(
-    @Req() req: RequestWithUser,
-    @Body() dto: ExpenseDto,
-  ) {
+  async create_expenses(@Req() req: RequestWithUser, @Body() dto: ExpenseDto) {
     return this.hr.mutate(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -812,6 +792,7 @@ export class HrController {
           type: 'array',
           items: {
             allOf: [
+              { $ref: getSchemaPath(ReadRelationsDto) },
               { $ref: getSchemaPath(DocumentDto) },
               {
                 type: 'object',
@@ -832,10 +813,7 @@ export class HrController {
     },
   })
   @ApiOperation({ summary: 'List documents records' })
-  async list_documents(
-    @Req() req: RequestWithUser,
-    @Query() q: HrQueryDto,
-  ) {
+  async list_documents(@Req() req: RequestWithUser, @Query() q: HrQueryDto) {
     return this.hr.list(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -915,6 +893,7 @@ export class HrController {
           type: 'array',
           items: {
             allOf: [
+              { $ref: getSchemaPath(ReadRelationsDto) },
               { $ref: getSchemaPath(InterviewDto) },
               {
                 type: 'object',
@@ -935,10 +914,7 @@ export class HrController {
     },
   })
   @ApiOperation({ summary: 'List interviews records' })
-  async list_interviews(
-    @Req() req: RequestWithUser,
-    @Query() q: HrQueryDto,
-  ) {
+  async list_interviews(@Req() req: RequestWithUser, @Query() q: HrQueryDto) {
     return this.hr.list(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -1018,6 +994,7 @@ export class HrController {
           type: 'array',
           items: {
             allOf: [
+              { $ref: getSchemaPath(ReadRelationsDto) },
               { $ref: getSchemaPath(RequisitionDto) },
               {
                 type: 'object',
@@ -1038,10 +1015,7 @@ export class HrController {
     },
   })
   @ApiOperation({ summary: 'List requisitions records' })
-  async list_requisitions(
-    @Req() req: RequestWithUser,
-    @Query() q: HrQueryDto,
-  ) {
+  async list_requisitions(@Req() req: RequestWithUser, @Query() q: HrQueryDto) {
     return this.hr.list(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -1121,6 +1095,7 @@ export class HrController {
           type: 'array',
           items: {
             allOf: [
+              { $ref: getSchemaPath(ReadRelationsDto) },
               { $ref: getSchemaPath(DepartmentPlanningDto) },
               {
                 type: 'object',
@@ -1226,6 +1201,7 @@ export class HrController {
           type: 'array',
           items: {
             allOf: [
+              { $ref: getSchemaPath(ReadRelationsDto) },
               { $ref: getSchemaPath(TeamPlanningDto) },
               {
                 type: 'object',
@@ -1246,10 +1222,7 @@ export class HrController {
     },
   })
   @ApiOperation({ summary: 'List team-plans records' })
-  async list_team_plans(
-    @Req() req: RequestWithUser,
-    @Query() q: HrQueryDto,
-  ) {
+  async list_team_plans(@Req() req: RequestWithUser, @Query() q: HrQueryDto) {
     return this.hr.list(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -1330,6 +1303,7 @@ export class HrController {
           type: 'array',
           items: {
             allOf: [
+              { $ref: getSchemaPath(ReadRelationsDto) },
               { $ref: getSchemaPath(LeaveEntitlementDto) },
               {
                 type: 'object',
@@ -1350,10 +1324,7 @@ export class HrController {
     },
   })
   @ApiOperation({ summary: 'List entitlements records' })
-  async list_entitlements(
-    @Req() req: RequestWithUser,
-    @Query() q: HrQueryDto,
-  ) {
+  async list_entitlements(@Req() req: RequestWithUser, @Query() q: HrQueryDto) {
     return this.hr.list(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -1434,6 +1405,7 @@ export class HrController {
           type: 'array',
           items: {
             allOf: [
+              { $ref: getSchemaPath(ReadRelationsDto) },
               { $ref: getSchemaPath(PayrollDto) },
               {
                 type: 'object',
@@ -1454,10 +1426,7 @@ export class HrController {
     },
   })
   @ApiOperation({ summary: 'List payroll records' })
-  async list_payroll(
-    @Req() req: RequestWithUser,
-    @Query() q: HrQueryDto,
-  ) {
+  async list_payroll(@Req() req: RequestWithUser, @Query() q: HrQueryDto) {
     return this.hr.list(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -1483,10 +1452,7 @@ export class HrController {
     },
   })
   @ApiOperation({ summary: 'Create payroll record' })
-  async create_payroll(
-    @Req() req: RequestWithUser,
-    @Body() dto: PayrollDto,
-  ) {
+  async create_payroll(@Req() req: RequestWithUser, @Body() dto: PayrollDto) {
     return this.hr.mutate(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -1537,6 +1503,7 @@ export class HrController {
           type: 'array',
           items: {
             allOf: [
+              { $ref: getSchemaPath(ReadRelationsDto) },
               { $ref: getSchemaPath(PayrollLineDto) },
               {
                 type: 'object',
@@ -1642,6 +1609,7 @@ export class HrController {
           type: 'array',
           items: {
             allOf: [
+              { $ref: getSchemaPath(ReadRelationsDto) },
               { $ref: getSchemaPath(MessageDto) },
               {
                 type: 'object',
@@ -1662,10 +1630,7 @@ export class HrController {
     },
   })
   @ApiOperation({ summary: 'List celebrations records' })
-  async list_celebrations(
-    @Req() req: RequestWithUser,
-    @Query() q: HrQueryDto,
-  ) {
+  async list_celebrations(@Req() req: RequestWithUser, @Query() q: HrQueryDto) {
     return this.hr.list(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -1861,7 +1826,7 @@ export class HrController {
     @Req() req: RequestWithUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.hr.rpc('hr_department_chart', {
+    return this.hr.readRpc('hr_department_chart', {
       p_actor: req.user.id,
       p_org: await this.hr.organization(req.user.id, this.orgHeader(req)),
       p_department: id,
@@ -1872,10 +1837,7 @@ export class HrController {
   @ApiOperation({
     summary: 'Configure ordered approvers for future HR requests',
   })
-  async chain(
-    @Req() req: RequestWithUser,
-    @Body() dto: ApprovalChainDto,
-  ) {
+  async chain(@Req() req: RequestWithUser, @Body() dto: ApprovalChainDto) {
     return this.hr.rpc('hr_set_approval_chain', {
       p_actor: req.user.id,
       p_org: await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -1887,10 +1849,7 @@ export class HrController {
   @ApiOperation({
     summary: 'Atomically request updates for selected documents',
   })
-  async bulkDocuments(
-    @Req() req: RequestWithUser,
-    @Body() dto: BulkIdsDto,
-  ) {
+  async bulkDocuments(@Req() req: RequestWithUser, @Body() dto: BulkIdsDto) {
     return this.hr.rpc('hr_document_updates', {
       p_actor: req.user.id,
       p_org: await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -1905,7 +1864,7 @@ export class HrController {
     @Req() req: RequestWithUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.hr.rpc('hr_activity_detail', {
+    return this.hr.readRpc('hr_activity_detail', {
       p_actor: req.user.id,
       p_org: await this.hr.organization(req.user.id, this.orgHeader(req)),
       p_id: id,
@@ -1915,10 +1874,7 @@ export class HrController {
   @ApiOperation({
     summary: 'Six months of headcount and seven days of approved attendance',
   })
-  async trends(
-    @Req() req: RequestWithUser,
-    @Query() q: HrQueryDto,
-  ) {
+  async trends(@Req() req: RequestWithUser, @Query() q: HrQueryDto) {
     return this.hr.rpc('hr_trends', {
       p_actor: req.user.id,
       p_org: await this.hr.organization(req.user.id, this.orgHeader(req)),
@@ -1927,9 +1883,7 @@ export class HrController {
   }
   @Get('approval-chains')
   @ApiOperation({ summary: 'Configured approver chains' })
-  async chains(
-    @Req() req: RequestWithUser,
-  ) {
+  async chains(@Req() req: RequestWithUser) {
     return this.hr.chains(
       req.user.id,
       await this.hr.organization(req.user.id, this.orgHeader(req)),
