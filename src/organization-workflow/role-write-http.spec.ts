@@ -337,4 +337,55 @@ describe('Role write HTTP and Swagger contract', () => {
     expect(query.eq).toHaveBeenCalledWith('organization_id', org);
     expect(query.eq).toHaveBeenCalledWith('role_id', roleId);
   });
+
+  it('returns the labelled permission catalogue with owner-only and grantable flags', async () => {
+    query.abortSignal
+      .mockResolvedValueOnce({
+        data: [
+          { id: 'teams.manage', description: 'Manage teams' },
+          { id: 'billing.manage', description: 'Manage workspace billing' },
+          {
+            id: 'candidates.view_assigned',
+            description: 'View candidates for assigned jobs',
+          },
+        ],
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: [{ organization_role_id: 'role-1' }],
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: [{ permission_id: 'teams.manage' }],
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: [], error: null });
+    const response = await request(app.getHttpServer() as Server)
+      .get('/api/v1/organization/permissions')
+      .expect(200);
+    const byId = new Map(
+      response.body.items.map((item: { id: string }) => [item.id, item]),
+    );
+    expect(byId.get('teams.manage')).toMatchObject({
+      id: 'teams.manage',
+      name: 'Manage teams',
+      description: 'Manage teams',
+      group: 'Teams & Work',
+      type: 'manage',
+      ownerOnly: false,
+      assignable: true,
+      grantable: true,
+    });
+    expect(byId.get('billing.manage')).toMatchObject({
+      name: 'Manage billing',
+      group: 'Billing',
+      ownerOnly: true,
+      assignable: false,
+      grantable: false,
+    });
+    expect(byId.get('candidates.view_assigned')).toMatchObject({
+      name: 'View assigned candidates',
+      group: 'Recruitment',
+    });
+  });
 });

@@ -58,6 +58,28 @@ export class WorkflowRoleHistoryDto {
   @ApiProperty({ type: 'integer', minimum: 0 }) newRevision!: number;
   @ApiProperty({ format: 'date-time' }) createdAt!: string;
 }
+export class PermissionCatalogueItemDto {
+  @ApiProperty({ example: 'teams.manage' }) id!: string;
+  @ApiProperty({ example: 'Manage teams' }) name!: string;
+  @ApiProperty({ example: 'Manage teams' }) description!: string;
+  @ApiProperty({ example: 'Teams & Work' }) group!: string;
+  @ApiProperty({ example: 'manage' }) type!: string;
+  @ApiProperty({
+    example: false,
+    description: 'Owner-only permissions cannot be delegated to custom roles.',
+  })
+  ownerOnly!: boolean;
+  @ApiProperty({
+    example: true,
+    description: 'False for owner-only permissions.',
+  })
+  assignable!: boolean;
+  @ApiProperty({
+    example: true,
+    description: 'True when the current user can grant this permission.',
+  })
+  grantable!: boolean;
+}
 export class WorkflowTeamResponseDto extends IntersectionType(
   WorkflowIdentityDto,
   CreateTeamDto,

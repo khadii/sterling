@@ -1,6 +1,7 @@
 import {
   WorkflowRoleResponseDto,
   WorkflowRoleHistoryDto,
+  PermissionCatalogueItemDto,
   WorkflowTeamResponseDto,
   WorkflowProjectResponseDto,
   WorkflowTaskResponseDto,
@@ -61,6 +62,7 @@ import {
 @ApiExtraModels(
   WorkflowRoleResponseDto,
   WorkflowRoleHistoryDto,
+  PermissionCatalogueItemDto,
   WorkflowTeamResponseDto,
   WorkflowProjectResponseDto,
   WorkflowTaskResponseDto,
@@ -192,7 +194,22 @@ export class WorkflowController {
   }
 
   @Get('permissions')
-  @ApiOperation({ summary: 'Get the permission catalogue for role checkboxes' })
+  @ApiOperation({
+    summary: 'Permission catalogue for role builders',
+    description:
+      'Every permission with a display name, description, group and type. ownerOnly marks workspace.delete, workspace.transfer and billing.manage (never assignable to custom roles, included so the UI can show them disabled). assignable is false for those rows. grantable is true only when the current user can grant the permission, so the UI can disable checkboxes for anything beyond the caller. Sort items by group, then by name.',
+  })
+  @ApiOkResponse({
+    schema: {
+      type: 'object',
+      properties: {
+        items: {
+          type: 'array',
+          items: { $ref: getSchemaPath(PermissionCatalogueItemDto) },
+        },
+      },
+    },
+  })
   async permissions(@Req() r: RequestWithUser, @Query() q: WorkflowQueryDto) {
     return this.workflow.permissions(r.user.id, await this.org(r, q));
   }

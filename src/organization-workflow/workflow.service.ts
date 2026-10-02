@@ -20,6 +20,60 @@ const tables: Record<Entity, string> = {
   projects: 'organization_projects',
   tasks: 'organization_tasks',
 };
+const ownerOnlyPermissions = new Set([
+  'workspace.delete',
+  'workspace.transfer',
+  'billing.manage',
+]);
+const permissionGroupOf = (id: string): string => {
+  const [domain] = id.split('.');
+  switch (domain) {
+    case 'workspace':
+    case 'activity':
+    case 'audit_log':
+      return 'Workspace';
+    case 'billing':
+      return 'Billing';
+    case 'members':
+    case 'roles':
+      return 'Members & Access';
+    case 'departments':
+    case 'department_icons':
+      return 'Organisation';
+    case 'employees':
+    case 'documents':
+      return 'People';
+    case 'teams':
+    case 'projects':
+    case 'tasks':
+    case 'calendar':
+      return 'Teams & Work';
+    case 'attendance':
+    case 'leave':
+      return 'Attendance & Leave';
+    case 'payroll':
+    case 'expenses':
+      return 'Payroll & Expenses';
+    case 'performance':
+      return 'Performance';
+    default:
+      return 'Recruitment';
+  }
+};
+const permissionNameOf = (id: string): string => {
+  const [domain = '', verb = '', ...rest] = id.split('.');
+  const [action, ...details] = [verb, ...rest].join('.').split('_');
+  const subject = [details.join(' '), domain.replace(/_/g, ' ')]
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!action) return subject;
+  const actionWord = action.charAt(0).toUpperCase() + action.slice(1);
+  return action === 'participate'
+    ? `Participate in ${subject}`
+    : `${actionWord} ${subject}`;
+};
 
 @Injectable()
 export class WorkflowService {
@@ -353,15 +407,61 @@ export class WorkflowService {
       .order('id')
       .abortSignal(AbortSignal.timeout(10000));
     if (error) throw mapDatabaseError(error, 'load permissions');
+    const memberRoles = await this.supabase.adminClient
+      .from('organization_member_roles')
+      .select('organization_role_id')
+      .eq('organization_id', org)
+      .eq('user_id', userId)
+      .abortSignal(AbortSignal.timeout(10000));
+    if (memberRoles.error)
+      throw mapDatabaseError(memberRoles.error, 'load member roles');
+    const roleIds = ((memberRoles.data ?? []) as Row[]).map((row) =>
+      String(row.organization_role_id),
+    );
+    let held = new Set<string>();
+    let isOwner = false;
+    if (roleIds.length) {
+      const [grants, ownerRole] = await Promise.all([
+        this.supabase.adminClient
+          .from('organization_role_permissions')
+          .select('permission_id')
+          .in('organization_role_id', roleIds)
+          .abortSignal(AbortSignal.timeout(10000)),
+        this.supabase.adminClient
+          .from('organization_roles')
+          .select('id')
+          .in('id', roleIds)
+          .eq('key', 'organisation_owner')
+          .eq('status', 'active')
+          .limit(1)
+          .abortSignal(AbortSignal.timeout(10000)),
+      ]);
+      if (grants.error)
+        throw mapDatabaseError(grants.error, 'load held permissions');
+      if (ownerRole.error)
+        throw mapDatabaseError(ownerRole.error, 'verify owner role');
+      held = new Set(
+        ((grants.data ?? []) as Row[]).map((grant) =>
+          String(grant.permission_id),
+        ),
+      );
+      isOwner = ((ownerRole.data ?? []) as Row[]).length > 0;
+    }
     return {
-      items: (data as Row[]).filter(
-        (p) =>
-          ![
-            'workspace.delete',
-            'workspace.transfer',
-            'billing.manage',
-          ].includes(String(p.id)),
-      ),
+      items: ((data as Row[]) ?? []).map((row) => {
+        const id = String(row.id);
+        const ownerOnly = ownerOnlyPermissions.has(id);
+        return {
+          id,
+          name: permissionNameOf(id),
+          description: String(row.description ?? ''),
+          group: permissionGroupOf(id),
+          type: (id.split('.')[1] ?? 'action').split('_')[0],
+          ownerOnly,
+          assignable: !ownerOnly,
+          grantable: isOwner || held.has(id),
+        };
+      }),
     };
   }
 
