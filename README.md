@@ -207,6 +207,45 @@ cursors are opaque; clients send `nextCursor` back unchanged. Metrics for
 employee, recruiting and leave domains return `null` with `unavailableMetrics`
 until those source modules exist, rather than presenting invented zero values.
 
+## Jobs and recruitment
+
+Every route below requires an employer bearer token. The API resolves the
+workspace from `X-Organization-Id` (or the only membership when there is one)
+and then checks the workspace permission named in the last column. Migration
+`20261009120000_recruitment_jobs.sql` creates the schema, permissions and the
+indexed query functions; see
+[Recruitment jobs frontend flow](docs/recruitment-jobs-frontend.md) for the
+screen-by-screen field and statistic mapping.
+
+| Method | Route | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/v1/employer/jobs/metrics` | `workspace.view` | Jobs dashboard: open jobs, applications, sources, interviews, recent activity |
+| GET | `/api/v1/employer/jobs` | `jobs.view` | Jobs list with applicant counts and stage counts |
+| POST | `/api/v1/employer/jobs` | `jobs.create` | Create a job draft with the full create-job payload |
+| GET | `/api/v1/employer/jobs/:id` | `jobs.view` | Job detail with every configured child collection and its revision |
+| PATCH | `/api/v1/employer/jobs/:id` | `jobs.manage_all` | Update a job; closed jobs are read-only |
+| POST | `/api/v1/employer/jobs/:id/publish` | `jobs.publish` | Publish a draft and assign its public slug |
+| PATCH | `/api/v1/employer/jobs/:id/status` | `jobs.manage_all` | Put on hold, close or reopen |
+| GET | `/api/v1/employer/jobs/:id/stats` | `jobs.view` | Position, application and review-funnel statistics |
+| GET | `/api/v1/employer/jobs/:id/pipeline` | `jobs.view` | Pipeline board: stages with their candidate cards |
+| GET | `/api/v1/employer/jobs/:id/candidates` | `jobs.view` | Applications for one job |
+| POST | `/api/v1/employer/jobs/:id/candidates` | `candidates.manage` | Add a candidate to a job |
+| GET | `/api/v1/employer/candidates` | `jobs.view` | Candidates across jobs with job title and stage |
+| PATCH | `/api/v1/employer/candidates/:id` | `candidates.manage` | Update a candidate without moving their stage |
+| POST | `/api/v1/employer/candidates/:id/advance` | `candidates.manage` | Move a candidate into a stage |
+
+Counts are always returned as real numbers, so an empty workspace reports `0`
+rather than `null`. Derived percentages return `null` when their denominator is
+zero, which is why `applicationsChangePercent` is `null` before a full previous
+week exists. List endpoints accept optional `page`/`limit`; omitting both returns
+every matching record, accumulated in bounded batches.
+
+Job writes are last-write-wins. `expectedRevision` is an optional
+optimistic-concurrency token: omit it to save directly, or send the `revision`
+from the latest job read and the API returns `409 JOB_REVISION_CONFLICT` with
+`currentRevision` and `reloadUrl` when another writer got there first. Every job
+write is recorded in `job_revision_history`, so an overwrite is auditable.
+
 ## Employer onboarding
 
 All routes below require a valid Supabase bearer token and the global `employer` account role. `GET /employer/onboarding` is the resume endpoint: call it after login and use `status`, `currentStep`, `completedSteps`, and `revision` to restore the UI. Draft writes require `expectedRevision`; if another tab or stale client has already written, the API returns `409 ONBOARDING_REVISION_CONFLICT` and the frontend must reload the latest state before retrying.

@@ -3,6 +3,7 @@ import {
   enrichReadTree,
   ReadRow,
 } from '../common/read-relations';
+import { camel, snake } from '../common/serialize';
 import {
   BadRequestException,
   Injectable,
@@ -37,25 +38,7 @@ const resources: Record<string, { table: string; permission: string }> = {
   'payroll-lines': { table: 'hr_payroll_lines', permission: 'payroll.view' },
   celebrations: { table: 'hr_celebrations', permission: 'employees.view' },
 };
-export function camel(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(camel);
-  if (value && typeof value === 'object')
-    return Object.fromEntries(
-      Object.entries(value).map(([k, v]) => [
-        k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase()),
-        camel(v),
-      ]),
-    );
-  return value;
-}
-function snake(data: object) {
-  return Object.fromEntries(
-    Object.entries(data).map(([k, v]) => [
-      k.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase()),
-      v,
-    ]),
-  );
-}
+export { camel };
 @Injectable()
 export class HrService {
   constructor(private readonly supabase: SupabaseService) {}

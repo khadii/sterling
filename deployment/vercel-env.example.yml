@@ -31,3 +31,20 @@ environment:
   SMTP_PASSWORD: ""
   MAIL_FROM: no-reply@YOUR_DOMAIN
   MAIL_MAX_RETRIES: "2"
+
+  # Application notification worker. Keep the secret server-side only.
+  NOTIFICATION_FRONTEND_URL: https://YOUR_FRONTEND_DOMAIN
+  NOTIFICATION_WORKER_SECRET: GENERATE_A_RANDOM_SECRET_OF_AT_LEAST_32_CHARACTERS
+  NOTIFICATION_API_URL: https://YOUR_API_DOMAIN/api/v1
+
+  # Recruitment provider integrations. All optional; leave blank until a vendor is chosen.
+  PUBLIC_JOB_BOARD_URL: https://YOUR_FRONTEND_DOMAIN/jobs
+  INTERVIEW_SCHEDULING_PROVIDER: ""
+  INTERVIEW_SCHEDULING_BASE_URL: ""
+  JOB_SYNDICATION_PROVIDER: ""
+  JOB_SYNDICATION_API_KEY: ""
+  JOB_SYNDICATION_FEED_URL: ""
+  # Reserved for the AI provider; the AI features are not implemented yet.
+  AI_PROVIDER: ""
+  AI_API_KEY: ""
+  AI_MODEL: ""

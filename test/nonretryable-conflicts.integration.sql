@@ -37,10 +37,25 @@ begin
  if exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prokind='f' and p.prosrc like '%40001%') then
    raise exception 'Retryable business conflict remains';
  end if;
- if (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prokind='f' and p.prosrc like '%PT409%') <> 8 then
-   raise exception 'Expected eight repaired functions';
+ -- Assert by name rather than by count: later migrations may legitimately add
+ -- their own PT409 guards without invalidating this repair.
+ if exists(
+   select 1 from unnest(array[
+     'public.confirm_department_icon(uuid,uuid)',
+     'public.hr_claim_zoom(uuid,uuid,uuid)',
+     'public.hr_finish_zoom(uuid,uuid,uuid,text,text)',
+     'public.save_company_onboarding_draft(uuid,integer,jsonb)',
+     'public.save_department_onboarding_draft(uuid,integer,jsonb)',
+     'public.save_workspace_settings_draft(uuid,integer,jsonb)',
+     'public.set_department_members(uuid,uuid,uuid,uuid[],integer)',
+     'public.workflow_mutate(uuid,uuid,text,uuid,jsonb)'
+   ]) signature
+   where to_regprocedure(signature) is null
+      or (select prosrc from pg_proc where oid = to_regprocedure(signature)) not like '%PT409%'
+ ) then
+   raise exception 'A repaired conflict guard is missing PT409';
  end if;
- raise notice 'PASS: stale onboarding drafts and expired icons return PT409 without side effects; all eight guards repaired';
+ raise notice 'PASS: stale onboarding drafts and expired icons return PT409 without side effects; every repaired guard still raises PT409';
 end
 $test$;
 rollback;

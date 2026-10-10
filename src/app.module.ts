@@ -1,5 +1,6 @@
 import { HrModule } from './hr/hr.module';
 import { NotificationModule } from './notifications/notification.module';
+import { RecruitmentModule } from './recruitment/recruitment.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
@@ -94,6 +95,18 @@ const productionFrontendUrl = (value: string, helpers: Joi.CustomHelpers) => {
           otherwise: Joi.string().uri(),
         }).optional(),
         ZOOM_WORKSPACES_JSON: Joi.string().optional(),
+        // Recruitment provider integrations. Every value is optional: the API
+        // only ever exposes these through the providers that consume them, and
+        // the hiring flows work without them until a vendor is configured.
+        PUBLIC_JOB_BOARD_URL: Joi.string().uri().empty('').optional(),
+        INTERVIEW_SCHEDULING_PROVIDER: Joi.string().max(60).empty('').optional(),
+        INTERVIEW_SCHEDULING_BASE_URL: Joi.string().uri().empty('').optional(),
+        JOB_SYNDICATION_PROVIDER: Joi.string().max(60).empty('').optional(),
+        JOB_SYNDICATION_API_KEY: Joi.string().allow('').optional(),
+        JOB_SYNDICATION_FEED_URL: Joi.string().uri().empty('').optional(),
+        AI_PROVIDER: Joi.string().max(60).empty('').optional(),
+        AI_API_KEY: Joi.string().allow('').optional(),
+        AI_MODEL: Joi.string().max(120).empty('').optional(),
         SMTP_HOST: Joi.string().allow('').optional(),
         SMTP_PORT: Joi.number().port().default(587),
         SMTP_SECURE: Joi.boolean().default(false),
@@ -124,6 +137,7 @@ const productionFrontendUrl = (value: string, helpers: Joi.CustomHelpers) => {
     MailModule,
     NotificationModule,
     HrModule,
+    RecruitmentModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
