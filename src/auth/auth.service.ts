@@ -75,13 +75,24 @@ export class AuthService {
     const { data: members, error: membersError } =
       await this.supabase.adminClient
         .from('organization_members')
-        .select('organization_id')
+        .select('organization_id, organization:organizations(id,name)')
         .eq('user_id', user.id);
     if (membersError)
       throw mapDatabaseError(membersError, 'load workspace memberships');
-    const organizationIds = (
-      (members ?? []) as { organization_id: string }[]
-    ).map((row) => row.organization_id);
+    const organizations = (
+      (members ?? []) as {
+        organization_id: string;
+        organization?: { id?: string | null; name?: string | null } | null;
+      }[]
+    ).map((row) => ({
+      id: row.organization?.id ?? row.organization_id,
+      name: row.organization?.name ?? null,
+    }));
+    const organizationIds = organizations.map(
+      (organization) => organization.id,
+    );
+    const selectedOrganization =
+      organizations.length === 1 ? organizations[0] : null;
     const hasWorkspaceAccess = organizationIds.length > 0;
     const accountOnboardingComplete =
       user.roles.length > 0 || hasWorkspaceAccess;
@@ -96,6 +107,7 @@ export class AuthService {
       accountOnboardingComplete,
       employerWorkspaceSetupComplete,
       hasWorkspaceAccess,
+      organizations,
       organizationIds,
       requiresWorkspaceSelection: organizationIds.length > 1,
       nextAction: hasWorkspaceAccess
@@ -108,7 +120,8 @@ export class AuthService {
             ? 'company_setup'
             : 'candidate_dashboard',
       onboardingStatus: status,
-      organizationId: organizationIds.length === 1 ? organizationIds[0] : null,
+      organizationId: selectedOrganization?.id ?? null,
+      organizationName: selectedOrganization?.name ?? null,
       onboardingCompletedAt: onboarding?.completed_at ?? null,
     };
   }

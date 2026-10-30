@@ -1,6 +1,8 @@
 import { HrModule } from './hr/hr.module';
 import { NotificationModule } from './notifications/notification.module';
 import { RecruitmentModule } from './recruitment/recruitment.module';
+import { EmployeeModule } from './employee/employee.module';
+import { LeaveModule } from './leave/leave.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
@@ -138,6 +140,8 @@ const productionFrontendUrl = (value: string, helpers: Joi.CustomHelpers) => {
     NotificationModule,
     HrModule,
     RecruitmentModule,
+    EmployeeModule,
+    LeaveModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

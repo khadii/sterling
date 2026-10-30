@@ -345,6 +345,13 @@ export class RecruitmentCandidateDto {
 
   @ApiPropertyOptional({ type: String, nullable: true })
   stageName!: string | null;
+
+  @ApiPropertyOptional({
+    type: [Object],
+    description:
+      'Stage-automation execution results returned after a candidate stage change',
+  })
+  automations?: Record<string, unknown>[];
 }
 
 export class RecruitmentCandidateListDto {

@@ -249,7 +249,17 @@ export class StageAutomationDto {
   @IsBoolean()
   isEnabled?: boolean;
 
-  @ApiPropertyOptional({ type: Object })
+  @ApiPropertyOptional({
+    type: Object,
+    example: {
+      recipient: 'candidate',
+      subject: 'Application update',
+      body: 'Your application has moved to the next stage.',
+      delayHours: 24,
+      durationMinutes: 30,
+      reviewerRole: 'reviewer',
+    },
+  })
   @IsOptional()
   config?: Record<string, unknown>;
 }

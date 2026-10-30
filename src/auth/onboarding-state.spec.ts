@@ -5,7 +5,13 @@ function setup(status: string, members: string[]) {
   const from = jest.fn((table: string) => {
     const data =
       table === 'organization_members'
-        ? members.map((organization_id) => ({ organization_id }))
+        ? members.map((organization_id) => ({
+            organization_id,
+            organization: {
+              id: organization_id,
+              name: `Workspace ${organization_id}`,
+            },
+          }))
         : { status, organization_id: 'owned', completed_at: null };
     const chain = {
       select: () => chain,
@@ -29,6 +35,8 @@ it('routes invited members to their workspace without employer setup', async () 
     employerWorkspaceSetupComplete: false,
     hasWorkspaceAccess: true,
     organizationId: 'invited',
+    organizationName: 'Workspace invited',
+    organizations: [{ id: 'invited', name: 'Workspace invited' }],
     nextAction: 'dashboard',
   });
 });
@@ -46,6 +54,11 @@ it('does not choose an arbitrary workspace for multiple memberships', async () =
     await setup('completed', ['a', 'b']).me({ id: 'u', roles: ['employer'] }),
   ).toMatchObject({
     organizationId: null,
+    organizationName: null,
+    organizations: [
+      { id: 'a', name: 'Workspace a' },
+      { id: 'b', name: 'Workspace b' },
+    ],
     requiresWorkspaceSelection: true,
     nextAction: 'select_workspace',
   });
