@@ -1,10 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nestjs",
-  "crons": [
-    {
-      "path": "/api/v1/internal/notifications/process",
-      "schedule": "*/5 * * * *"
-    }
-  ]
+  "framework": "nestjs"
 }

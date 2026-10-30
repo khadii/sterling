@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PostgrestError } from '@supabase/supabase-js';
@@ -9,6 +10,7 @@ import { camel } from '../common/serialize';
 import { resolveOrganization } from '../organization-context/resolve-organization';
 import { mapDatabaseError } from '../supabase/database-error.mapper';
 import { SupabaseService } from '../supabase/supabase.service';
+import { NotificationService } from '../notifications/notification.service';
 import {
   AdvanceCandidateDto,
   CandidateListQueryDto,
@@ -33,7 +35,12 @@ export interface PagedItems {
 
 @Injectable()
 export class RecruitmentService {
-  constructor(private readonly supabase: SupabaseService) {}
+  private readonly logger = new Logger(RecruitmentService.name);
+
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly notifications?: NotificationService,
+  ) {}
 
   organization(user: string, header?: string) {
     return resolveOrganization(this.supabase, user, header);
@@ -177,13 +184,30 @@ export class RecruitmentService {
     id: string | null,
     data: object,
   ) {
-    return this.rpc('recruitment_mutate', {
-      p_actor: actor,
-      p_org: org,
-      p_action: action,
-      p_id: id,
-      p_data: data,
-    });
+    const result = await this.rpc<Record<string, unknown>>(
+      'recruitment_mutate',
+      {
+        p_actor: actor,
+        p_org: org,
+        p_action: action,
+        p_id: id,
+        p_data: data,
+      },
+    );
+    await this.drainAutomationNotifications(result);
+    return result;
+  }
+
+  private async drainAutomationNotifications(result: Record<string, unknown>) {
+    if (!this.notifications || !Array.isArray(result.automations)) return;
+    if (result.automations.length === 0) return;
+    try {
+      await this.notifications.process();
+    } catch {
+      this.logger.warn(
+        'Stage automation messages remain queued for retry after delivery failed',
+      );
+    }
   }
 
   async saveJob(

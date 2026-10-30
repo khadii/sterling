@@ -9,6 +9,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
+import { NotificationService } from '../notifications/notification.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { RecruitmentController } from './recruitment.controller';
 import { RecruitmentService } from './recruitment.service';
@@ -274,6 +275,34 @@ describe('Recruitment contract', () => {
     expect(result.total).toBe(250);
     expect(result.items).toHaveLength(250);
     expect(rpc).toHaveBeenCalledTimes(2);
+  });
+
+  it('drains queued notifications after a stage automation runs', async () => {
+    const rpc = jest.fn(() => ({
+      abortSignal: jest.fn().mockResolvedValue({
+        data: {
+          id: actor,
+          job_id: departmentId,
+          automations: [{ id: actor, kind: 'email', status: 'queued' }],
+        },
+        error: null,
+      }),
+    }));
+    const process = jest.fn().mockResolvedValue({
+      processed: 1,
+      sent: 1,
+      retryOrFailed: 0,
+    });
+    const service = new RecruitmentService(
+      { adminClient: { rpc } } as unknown as SupabaseService,
+      { process } as unknown as NotificationService,
+    );
+
+    await service.advanceCandidate(actor, actor, departmentId, {
+      stageId: actor,
+    });
+
+    expect(process).toHaveBeenCalledTimes(1);
   });
 
   it('documents the jobs dashboard and job routes', async () => {

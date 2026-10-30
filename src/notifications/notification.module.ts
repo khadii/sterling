@@ -10,5 +10,6 @@ import { NotificationService } from './notification.service';
   imports: [WorkflowModule, MailModule],
   controllers: [NotificationController, NotificationWorkerController],
   providers: [NotificationService],
+  exports: [NotificationService],
 })
 export class NotificationModule {}
