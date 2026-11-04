@@ -63,7 +63,7 @@ export class RecruitmentService {
       throw new NotFoundException('Recruitment record not found');
     if (error.code === '23505')
       throw new ConflictException(
-        'This record already exists: check the job reference and the candidate email',
+        'This record already exists: check the job reference, candidate email, stage name or automation label',
       );
     if (
       ['23514', '23502', '23503', '22P02', '22007', '22008'].includes(
@@ -83,6 +83,26 @@ export class RecruitmentService {
     const { data, error } = await this.call(name, args);
     this.raise(error, 'process recruitment request');
     return camel(data) as T;
+  }
+
+  managePipeline(
+    actor: string,
+    org: string,
+    job: string,
+    action: string,
+    stage: string | null = null,
+    automation: string | null = null,
+    data: object = {},
+  ) {
+    return this.rpc('recruitment_pipeline_manage', {
+      p_actor: actor,
+      p_org: org,
+      p_job: job,
+      p_action: action,
+      p_stage: stage,
+      p_automation: automation,
+      p_data: data,
+    });
   }
 
   metrics(actor: string, org: string, date?: string) {

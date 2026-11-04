@@ -1,7 +1,11 @@
 import { Test } from '@nestjs/testing';
+import request from 'supertest';
+import { Server } from 'node:http';
+import { RequestWithUser } from '../common/types/request-with-user.type';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import {
   BadRequestException,
+  ExecutionContext,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -15,6 +19,10 @@ import { RecruitmentController } from './recruitment.controller';
 import { RecruitmentService } from './recruitment.service';
 import {
   AdvanceCandidateDto,
+  StageAutomationDto,
+  UpdateStageAutomationDto,
+  UpdatePipelineStageDto,
+  ReorderPipelineStagesDto,
   CreateCandidateDto,
   CreateJobDto,
   JobListQueryDto,
@@ -305,6 +313,136 @@ describe('Recruitment contract', () => {
     expect(process).toHaveBeenCalledTimes(1);
   });
 
+  it('validates automation toggles, object config and stable stage ordering', async () => {
+    await expect(
+      translate(StageAutomationDto, {
+        kind: 'email',
+        label: 'Acknowledgement',
+        config: { subject: 'Received' },
+      }),
+    ).resolves.toMatchObject({ kind: 'email' });
+    await expect(
+      translate(StageAutomationDto, {
+        kind: 'email',
+        label: 'Acknowledgement',
+        config: [],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      translate(StageAutomationDto, {
+        kind: 'score_routing',
+        label: 'Routing',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      translate(UpdateStageAutomationDto, { isEnabled: false }),
+    ).resolves.toMatchObject({ isEnabled: false });
+    await expect(
+      translate(UpdatePipelineStageDto, { automations: [] }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      translate(ReorderPipelineStagesDto, { stageIds: [actor, departmentId] }),
+    ).resolves.toMatchObject({ stageIds: [actor, departmentId] });
+    await expect(
+      translate(ReorderPipelineStagesDto, { stageIds: [actor, actor] }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('routes stage order and page save through authenticated workspace context', async () => {
+    const managePipeline = jest
+      .fn()
+      .mockResolvedValue({ items: [], total: 0, revision: 1 });
+    const organization = jest.fn().mockResolvedValue(departmentId);
+    const module = await Test.createTestingModule({
+      controllers: [RecruitmentController],
+      providers: [
+        {
+          provide: RecruitmentService,
+          useValue: { managePipeline, organization },
+        },
+      ],
+    })
+      .overrideGuard(SupabaseAuthGuard)
+      .useValue({
+        canActivate(context: ExecutionContext) {
+          const req = context.switchToHttp().getRequest<RequestWithUser>();
+          req.user = { id: actor } as RequestWithUser['user'];
+          return true;
+        },
+      })
+      .compile();
+    const app = module.createNestApplication();
+    app.setGlobalPrefix('api/v1');
+    app.useGlobalPipes(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    );
+    await app.init();
+    try {
+      const base = '/api/v1/employer/jobs/' + departmentId + '/stages';
+      await request(app.getHttpServer() as Server)
+        .patch(base + '/order')
+        .set('X-Organization-Id', departmentId)
+        .send({ stageIds: [actor] })
+        .expect(200);
+      expect(managePipeline).toHaveBeenLastCalledWith(
+        actor,
+        departmentId,
+        departmentId,
+        'stages.reorder',
+        null,
+        null,
+        { stageIds: [actor] },
+      );
+      await request(app.getHttpServer() as Server)
+        .put(base + '/' + actor + '/automations')
+        .send({
+          items: [
+            {
+              kind: 'email',
+              label: 'Acknowledgement',
+              isEnabled: false,
+              config: { subject: 'Received' },
+            },
+          ],
+        })
+        .expect(200);
+      expect(managePipeline).toHaveBeenLastCalledWith(
+        actor,
+        departmentId,
+        departmentId,
+        'automations.replace',
+        actor,
+        null,
+        {
+          items: [
+            {
+              kind: 'email',
+              label: 'Acknowledgement',
+              isEnabled: false,
+              config: { subject: 'Received' },
+            },
+          ],
+        },
+      );
+      const calls = managePipeline.mock.calls.length;
+      await request(app.getHttpServer() as Server)
+        .put(base + '/' + actor + '/automations')
+        .send({ items: [{ kind: 'email', label: 'Bad config', config: [] }] })
+        .expect(400);
+      await request(app.getHttpServer() as Server)
+        .post(base + '/not-a-uuid/automations')
+        .send({ kind: 'email', label: 'Invalid stage' })
+        .expect(400);
+      expect(managePipeline).toHaveBeenCalledTimes(calls);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('documents the jobs dashboard and job routes', async () => {
     const module = await Test.createTestingModule({
       controllers: [RecruitmentController],
@@ -325,6 +463,35 @@ describe('Recruitment contract', () => {
       expect(doc.paths['/employer/jobs/{id}'].patch).toBeDefined();
       expect(doc.paths['/employer/jobs/{id}/publish'].post).toBeDefined();
       expect(doc.paths['/employer/jobs/{id}/pipeline'].get).toBeDefined();
+      expect(doc.paths['/employer/jobs/{id}/stages'].get).toBeDefined();
+      expect(doc.paths['/employer/jobs/{id}/stages'].post).toBeDefined();
+      expect(doc.paths['/employer/jobs/{id}/stages/order'].patch).toBeDefined();
+      expect(
+        doc.paths['/employer/jobs/{id}/stages/{stageId}'].patch,
+      ).toBeDefined();
+      expect(
+        doc.paths['/employer/jobs/{id}/stages/{stageId}'].delete,
+      ).toBeDefined();
+      expect(
+        doc.paths['/employer/jobs/{id}/stages/{stageId}/automations'].put,
+      ).toBeDefined();
+      expect(
+        doc.paths['/employer/jobs/{id}/stages/{stageId}/automations'].get,
+      ).toBeDefined();
+      expect(
+        doc.paths['/employer/jobs/{id}/stages/{stageId}/automations'].post,
+      ).toBeDefined();
+      expect(
+        doc.paths[
+          '/employer/jobs/{id}/stages/{stageId}/automations/{automationId}'
+        ].patch,
+      ).toBeDefined();
+      expect(
+        doc.paths[
+          '/employer/jobs/{id}/stages/{stageId}/automations/{automationId}'
+        ].delete,
+      ).toBeDefined();
+
       expect(doc.paths['/employer/candidates/{id}/advance'].post).toBeDefined();
       expect(doc.components?.schemas?.RecruitmentSummaryDto).toMatchObject({
         properties: { openJobs: { type: 'number', example: 12 } },

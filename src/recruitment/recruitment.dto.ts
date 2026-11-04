@@ -1,4 +1,9 @@
-import { PartialType, ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  PartialType,
+  OmitType,
+  ApiProperty,
+  ApiPropertyOptional,
+} from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -9,6 +14,9 @@ import {
   IsIn,
   IsInt,
   IsOptional,
+  IsObject,
+  ArrayUnique,
+  ArrayMinSize,
   IsString,
   IsUUID,
   Matches,
@@ -261,6 +269,7 @@ export class StageAutomationDto {
     },
   })
   @IsOptional()
+  @IsObject()
   config?: Record<string, unknown>;
 }
 
@@ -675,4 +684,45 @@ export class AdvanceCandidateDto {
   @IsString()
   @MaxLength(1000)
   rejectionReason?: string;
+}
+
+export class UpdatePipelineStageDto extends PartialType(
+  OmitType(PipelineStageDto, ['automations'] as const),
+) {}
+export class UpdateStageAutomationDto extends PartialType(StageAutomationDto) {}
+export class ReorderPipelineStagesDto {
+  @ApiProperty({
+    type: [String],
+    description:
+      'Every existing stage ID in the desired order; IDs remain unchanged.',
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(30)
+  @ArrayUnique()
+  @IsUUID('all', { each: true })
+  stageIds!: string[];
+}
+
+export class SaveStageAutomationDto extends StageAutomationDto {
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'Keep the ID returned by GET for existing rules; omit for new rules.',
+  })
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+}
+export class SaveStageAutomationsDto {
+  @ApiProperty({
+    type: [SaveStageAutomationDto],
+    description:
+      'Complete desired list. Omitted rules are removed only if unused; keep used rules with isEnabled=false.',
+  })
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => SaveStageAutomationDto)
+  items!: SaveStageAutomationDto[];
 }

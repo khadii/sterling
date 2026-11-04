@@ -367,3 +367,74 @@ export class RecruitmentCandidateListDto {
   @ApiProperty({ example: 0 })
   offset!: number;
 }
+
+export class StageAutomationResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+  @ApiProperty({
+    enum: [
+      'email',
+      'calendar',
+      'reviewer_assignment',
+      'ai_evaluation',
+      'custom',
+    ],
+  })
+  kind!: string;
+  @ApiProperty()
+  label!: string;
+  @ApiProperty()
+  isEnabled!: boolean;
+  @ApiProperty({ type: Object })
+  config!: Record<string, unknown>;
+}
+export class ManagedPipelineStageDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+  @ApiProperty()
+  name!: string;
+  @ApiProperty()
+  category!: string;
+  @ApiProperty()
+  displayOrder!: number;
+  @ApiProperty({ type: String, nullable: true })
+  description!: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  accent!: string | null;
+  @ApiProperty()
+  isAssessment!: boolean;
+  @ApiProperty({ type: Object })
+  assessment!: Record<string, unknown>;
+  @ApiProperty({ example: 0 })
+  candidateCount!: number;
+  @ApiProperty()
+  hasEnabledAutomation!: boolean;
+  @ApiProperty({ type: [StageAutomationResponseDto] })
+  automations!: StageAutomationResponseDto[];
+}
+export class ManagedStagesResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  jobId!: string;
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  stageId!: string | null;
+  @ApiProperty()
+  revision!: number;
+  @ApiProperty({ type: [ManagedPipelineStageDto] })
+  items!: ManagedPipelineStageDto[];
+  @ApiProperty({ example: 0 })
+  total!: number;
+}
+export class ManagedAutomationsResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  jobId!: string;
+  @ApiProperty({ format: 'uuid' })
+  stageId!: string;
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  automationId!: string | null;
+  @ApiProperty()
+  revision!: number;
+  @ApiProperty({ type: [StageAutomationResponseDto] })
+  items!: StageAutomationResponseDto[];
+  @ApiProperty({ example: 0 })
+  total!: number;
+}

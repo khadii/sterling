@@ -1,5 +1,8 @@
 # Recruitment jobs: backend flow and testing
 
+For dedicated pipeline editing and the Save Automations page, see
+[Stage automations frontend guide](stage-automations-frontend.md).
+
 This documents what the jobs module implements, how each screen in the design
 maps onto API calls, what every returned statistic means, and how to test it.
 

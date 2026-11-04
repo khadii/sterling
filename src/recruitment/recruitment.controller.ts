@@ -1,10 +1,12 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
   Patch,
+  Put,
   Post,
   Query,
   Req,
@@ -22,6 +24,12 @@ import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
 import { RequestWithUser } from '../common/types/request-with-user.type';
 import {
   AdvanceCandidateDto,
+  PipelineStageDto,
+  UpdatePipelineStageDto,
+  StageAutomationDto,
+  SaveStageAutomationsDto,
+  UpdateStageAutomationDto,
+  ReorderPipelineStagesDto,
   CandidateListQueryDto,
   CreateCandidateDto,
   CreateJobDto,
@@ -33,6 +41,8 @@ import {
 } from './recruitment.dto';
 import {
   RecruitmentCandidateDto,
+  ManagedStagesResponseDto,
+  ManagedAutomationsResponseDto,
   RecruitmentCandidateListDto,
   RecruitmentJobDto,
   RecruitmentJobDetailDto,
@@ -184,6 +194,218 @@ export class RecruitmentController {
       await this.org(req),
       id,
       q.limit ?? 50,
+    );
+  }
+
+  @Get('jobs/:id/stages')
+  @ApiOkResponse({ type: ManagedStagesResponseDto })
+  @ApiOperation({
+    summary: 'List ordered stages with automations and calculated counts',
+  })
+  async listStages(
+    @Req() req: RequestWithUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.recruitment.managePipeline(
+      req.user.id,
+      await this.org(req),
+      id,
+      'stages.list',
+      null,
+      null,
+      {},
+    );
+  }
+
+  @Post('jobs/:id/stages')
+  @ApiCreatedResponse({ type: ManagedStagesResponseDto })
+  @ApiOperation({ summary: 'Append a stage; creators choose up to 30 stages' })
+  async addStage(
+    @Req() req: RequestWithUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PipelineStageDto,
+  ) {
+    return this.recruitment.managePipeline(
+      req.user.id,
+      await this.org(req),
+      id,
+      'stage.create',
+      null,
+      null,
+      dto,
+    );
+  }
+
+  @Patch('jobs/:id/stages/order')
+  @ApiOkResponse({ type: ManagedStagesResponseDto })
+  @ApiOperation({
+    summary:
+      'Reorder all stages while preserving IDs and candidate assignments',
+  })
+  async reorderStages(
+    @Req() req: RequestWithUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReorderPipelineStagesDto,
+  ) {
+    return this.recruitment.managePipeline(
+      req.user.id,
+      await this.org(req),
+      id,
+      'stages.reorder',
+      null,
+      null,
+      dto,
+    );
+  }
+
+  @Patch('jobs/:id/stages/:stageId')
+  @ApiOkResponse({ type: ManagedStagesResponseDto })
+  @ApiOperation({ summary: 'Edit one stage without replacing the pipeline' })
+  async editStage(
+    @Req() req: RequestWithUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('stageId', ParseUUIDPipe) stageId: string,
+    @Body() dto: UpdatePipelineStageDto,
+  ) {
+    return this.recruitment.managePipeline(
+      req.user.id,
+      await this.org(req),
+      id,
+      'stage.update',
+      stageId,
+      null,
+      dto,
+    );
+  }
+
+  @Delete('jobs/:id/stages/:stageId')
+  @ApiOkResponse({ type: ManagedStagesResponseDto })
+  @ApiOperation({
+    summary:
+      'Remove an unused stage; stages with candidates or history are protected',
+  })
+  async removeStage(
+    @Req() req: RequestWithUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('stageId', ParseUUIDPipe) stageId: string,
+  ) {
+    return this.recruitment.managePipeline(
+      req.user.id,
+      await this.org(req),
+      id,
+      'stage.delete',
+      stageId,
+      null,
+      {},
+    );
+  }
+
+  @Get('jobs/:id/stages/:stageId/automations')
+  @ApiOkResponse({ type: ManagedAutomationsResponseDto })
+  @ApiOperation({ summary: 'Load automation settings for the selected stage' })
+  async listAutomations(
+    @Req() req: RequestWithUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('stageId', ParseUUIDPipe) stageId: string,
+  ) {
+    return this.recruitment.managePipeline(
+      req.user.id,
+      await this.org(req),
+      id,
+      'automations.list',
+      stageId,
+      null,
+      {},
+    );
+  }
+
+  @Put('jobs/:id/stages/:stageId/automations')
+  @ApiOkResponse({ type: ManagedAutomationsResponseDto })
+  @ApiOperation({
+    summary:
+      'Save the entire automation page atomically; preserve existing IDs and include used rules as disabled instead of removing them',
+  })
+  async saveAutomations(
+    @Req() req: RequestWithUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('stageId', ParseUUIDPipe) stageId: string,
+    @Body() dto: SaveStageAutomationsDto,
+  ) {
+    return this.recruitment.managePipeline(
+      req.user.id,
+      await this.org(req),
+      id,
+      'automations.replace',
+      stageId,
+      null,
+      dto,
+    );
+  }
+
+  @Post('jobs/:id/stages/:stageId/automations')
+  @ApiCreatedResponse({ type: ManagedAutomationsResponseDto })
+  @ApiOperation({ summary: 'Add an automation to the selected stage' })
+  async addAutomation(
+    @Req() req: RequestWithUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('stageId', ParseUUIDPipe) stageId: string,
+    @Body() dto: StageAutomationDto,
+  ) {
+    return this.recruitment.managePipeline(
+      req.user.id,
+      await this.org(req),
+      id,
+      'automation.create',
+      stageId,
+      null,
+      dto,
+    );
+  }
+
+  @Patch('jobs/:id/stages/:stageId/automations/:automationId')
+  @ApiOkResponse({ type: ManagedAutomationsResponseDto })
+  @ApiOperation({
+    summary:
+      'Edit or toggle an automation; config replaces its entire configuration object',
+  })
+  async editAutomation(
+    @Req() req: RequestWithUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('stageId', ParseUUIDPipe) stageId: string,
+    @Param('automationId', ParseUUIDPipe) automationId: string,
+    @Body() dto: UpdateStageAutomationDto,
+  ) {
+    return this.recruitment.managePipeline(
+      req.user.id,
+      await this.org(req),
+      id,
+      'automation.update',
+      stageId,
+      automationId,
+      dto,
+    );
+  }
+
+  @Delete('jobs/:id/stages/:stageId/automations/:automationId')
+  @ApiOkResponse({ type: ManagedAutomationsResponseDto })
+  @ApiOperation({
+    summary:
+      'Delete an unused automation; disable rules with execution history instead',
+  })
+  async removeAutomation(
+    @Req() req: RequestWithUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('stageId', ParseUUIDPipe) stageId: string,
+    @Param('automationId', ParseUUIDPipe) automationId: string,
+  ) {
+    return this.recruitment.managePipeline(
+      req.user.id,
+      await this.org(req),
+      id,
+      'automation.delete',
+      stageId,
+      automationId,
+      {},
     );
   }
 
