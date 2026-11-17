@@ -284,36 +284,40 @@ export class LeavePolicyListQueryDto {
 }
 
 export class LeaveSettingsDto {
-  @ApiProperty({ example: 1 })
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
   @IsInt()
   @Min(1)
   @Max(12)
-  leaveYearStartMonth!: number;
+  leaveYearStartMonth?: number;
 
-  @ApiProperty({ example: 1 })
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
   @IsInt()
   @Min(1)
   @Max(31)
-  leaveYearStartDay!: number;
+  leaveYearStartDay?: number;
 
-  @ApiProperty({ example: 12 })
+  @ApiPropertyOptional({ example: 12 })
+  @IsOptional()
   @IsInt()
   @Min(1)
   @Max(12)
-  leaveYearEndMonth!: number;
+  leaveYearEndMonth?: number;
 
-  @ApiProperty({ example: 31 })
+  @ApiPropertyOptional({ example: 31 })
+  @IsOptional()
   @IsInt()
   @Min(1)
   @Max(31)
-  leaveYearEndDay!: number;
+  leaveYearEndDay?: number;
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()
   @IsBoolean()
   proRateNewStarters?: boolean;
 
-  @ApiPropertyOptional({ default: false })
+  @ApiPropertyOptional({ default: true })
   @IsOptional()
   @IsBoolean()
   accrueByHours?: boolean;
@@ -332,4 +336,60 @@ export class LeaveSettingsDto {
   @IsOptional()
   @IsBoolean()
   carryForwardEnabled?: boolean;
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    minimum: 1,
+    maximum: 12,
+    description:
+      'Recurring carry-forward window. Set all four fields together, or all to null to clear.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  carryForwardStartMonth?: number | null;
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    minimum: 1,
+    maximum: 31,
+    description:
+      'Recurring carry-forward window. Set all four fields together, or all to null to clear.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(31)
+  carryForwardStartDay?: number | null;
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    minimum: 1,
+    maximum: 12,
+    description:
+      'Recurring carry-forward window. Set all four fields together, or all to null to clear.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  carryForwardEndMonth?: number | null;
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    minimum: 1,
+    maximum: 31,
+    description:
+      'Recurring carry-forward window. Set all four fields together, or all to null to clear.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(31)
+  carryForwardEndDay?: number | null;
 }

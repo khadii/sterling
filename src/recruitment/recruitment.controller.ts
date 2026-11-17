@@ -24,6 +24,8 @@ import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
 import { RequestWithUser } from '../common/types/request-with-user.type';
 import {
   AdvanceCandidateDto,
+  AutomationListQueryDto,
+  EnabledAutomationListQueryDto,
   PipelineStageDto,
   UpdatePipelineStageDto,
   StageAutomationDto,
@@ -41,6 +43,7 @@ import {
 } from './recruitment.dto';
 import {
   RecruitmentCandidateDto,
+  ConfiguredAutomationListDto,
   ManagedStagesResponseDto,
   ManagedAutomationsResponseDto,
   RecruitmentCandidateListDto,
@@ -52,6 +55,7 @@ import {
   RecruitmentPipelineDto,
 } from './recruitment-response.dto';
 import { RecruitmentService } from './recruitment.service';
+import { AutomationCatalogResponseDto } from './automation-catalog';
 
 @ApiTags('Employer Jobs')
 @ApiBearerAuth()
@@ -73,6 +77,49 @@ export class RecruitmentController {
 
   private org(req: RequestWithUser) {
     return this.recruitment.organization(req.user.id, this.orgHeader(req));
+  }
+
+  @Get('automations/catalog')
+  @ApiOperation({
+    summary:
+      'List supported automation types with names, descriptions, config fields, defaults and execution status',
+  })
+  @ApiOkResponse({ type: AutomationCatalogResponseDto })
+  async automationCatalog(@Req() req: RequestWithUser) {
+    return this.recruitment.automationCatalog(req.user.id, await this.org(req));
+  }
+
+  @Get('automations/enabled')
+  @ApiOperation({
+    summary:
+      'List enabled configured automations with job, stage and full config; enabled does not imply AI/custom execution is available',
+  })
+  @ApiOkResponse({ type: ConfiguredAutomationListDto })
+  async enabledAutomations(
+    @Req() req: RequestWithUser,
+    @Query() q: EnabledAutomationListQueryDto,
+  ) {
+    return this.recruitment.listAutomations(req.user.id, await this.org(req), {
+      ...q,
+      enabled: true,
+    });
+  }
+
+  @Get('automations')
+  @ApiOperation({
+    summary:
+      'List all configured workspace automations and config; filter by enabled, jobId, stageId or kind. Omit pagination to fetch all matches.',
+  })
+  @ApiOkResponse({ type: ConfiguredAutomationListDto })
+  async configuredAutomations(
+    @Req() req: RequestWithUser,
+    @Query() q: AutomationListQueryDto,
+  ) {
+    return this.recruitment.listAutomations(
+      req.user.id,
+      await this.org(req),
+      q,
+    );
   }
 
   @Get('jobs/metrics')

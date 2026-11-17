@@ -17,8 +17,12 @@ import { NotificationService } from '../notifications/notification.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { RecruitmentController } from './recruitment.controller';
 import { RecruitmentService } from './recruitment.service';
+import { AUTOMATION_CATALOG } from './automation-catalog';
 import {
   AdvanceCandidateDto,
+  AutomationListQueryDto,
+  EnabledAutomationListQueryDto,
+  AUTOMATION_KINDS,
   StageAutomationDto,
   UpdateStageAutomationDto,
   UpdatePipelineStageDto,
@@ -353,12 +357,25 @@ describe('Recruitment contract', () => {
       .fn()
       .mockResolvedValue({ items: [], total: 0, revision: 1 });
     const organization = jest.fn().mockResolvedValue(departmentId);
+    const listAutomations = jest
+      .fn()
+      .mockResolvedValue({ items: [], total: 0, limit: null, offset: 0 });
+    const automationCatalog = jest.fn().mockResolvedValue({
+      schemaVersion: 1,
+      items: AUTOMATION_CATALOG,
+      total: 5,
+    });
     const module = await Test.createTestingModule({
       controllers: [RecruitmentController],
       providers: [
         {
           provide: RecruitmentService,
-          useValue: { managePipeline, organization },
+          useValue: {
+            managePipeline,
+            organization,
+            listAutomations,
+            automationCatalog,
+          },
         },
       ],
     })
@@ -438,9 +455,112 @@ describe('Recruitment contract', () => {
         .send({ kind: 'email', label: 'Invalid stage' })
         .expect(400);
       expect(managePipeline).toHaveBeenCalledTimes(calls);
+      await request(app.getHttpServer() as Server)
+        .get('/api/v1/employer/automations/enabled?jobId=' + departmentId)
+        .expect(200);
+      expect(listAutomations).toHaveBeenLastCalledWith(actor, departmentId, {
+        enabled: true,
+        jobId: departmentId,
+      });
+      await request(app.getHttpServer() as Server)
+        .get('/api/v1/employer/automations?enabled=false')
+        .expect(200);
+      expect(listAutomations).toHaveBeenLastCalledWith(actor, departmentId, {
+        enabled: false,
+      });
+      await request(app.getHttpServer() as Server)
+        .get('/api/v1/employer/automations?enabled=invalid')
+        .expect(400);
+      await request(app.getHttpServer() as Server)
+        .get('/api/v1/employer/automations/catalog')
+        .expect(200);
+      expect(automationCatalog).toHaveBeenCalledWith(actor, departmentId);
     } finally {
       await app.close();
     }
+  });
+
+  it('validates list filters and preserves false instead of treating it as true', async () => {
+    await expect(
+      translate(AutomationListQueryDto, { enabled: 'false' }, 'query'),
+    ).resolves.toMatchObject({ enabled: false });
+    await expect(
+      translate(
+        AutomationListQueryDto,
+        { enabled: 'true', limit: '20', page: '2' },
+        'query',
+      ),
+    ).resolves.toMatchObject({ enabled: true, limit: 20, page: 2 });
+    await expect(
+      translate(AutomationListQueryDto, { enabled: 'yes' }, 'query'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      translate(EnabledAutomationListQueryDto, { enabled: 'false' }, 'query'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      translate(AutomationListQueryDto, { jobId: 'bad' }, 'query'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('documents only actual executor config and clearly marks deferred kinds', () => {
+    expect(AUTOMATION_CATALOG.map((x) => x.kind).sort()).toEqual(
+      [...AUTOMATION_KINDS].sort(),
+    );
+    for (const entry of AUTOMATION_CATALOG) {
+      const fields: ReadonlyArray<{ key: string }> = entry.configFields;
+      expect(entry.name).toBeTruthy();
+      expect(entry.description).toBeTruthy();
+      expect(
+        Object.keys(entry.configExample).every((key) =>
+          fields.some((f) => f.key === key),
+        ),
+      ).toBe(true);
+    }
+    expect(
+      AUTOMATION_CATALOG.find((x) => x.kind === 'ai_evaluation'),
+    ).toMatchObject({ executable: false, status: 'deferred' });
+    expect(AUTOMATION_CATALOG.find((x) => x.kind === 'custom')).toMatchObject({
+      executable: false,
+      status: 'configuration_only',
+    });
+  });
+
+  it('passes automation filters and checks permission before returning the catalog', async () => {
+    const rpc = jest.fn(() => ({
+      abortSignal: jest
+        .fn()
+        .mockResolvedValue({ data: { items: [], total: 0 }, error: null }),
+    }));
+    const service = new RecruitmentService({
+      adminClient: { rpc },
+    } as unknown as SupabaseService);
+    await service.listAutomations(actor, departmentId, { enabled: false });
+    expect(rpc).toHaveBeenLastCalledWith('recruitment_automation_list', {
+      p_actor: actor,
+      p_org: departmentId,
+      p_enabled: false,
+      p_job: null,
+      p_stage: null,
+      p_kind: null,
+      p_limit: null,
+      p_offset: 0,
+    });
+    await service.listAutomations(actor, departmentId, {
+      enabled: true,
+      page: 2,
+      limit: 20,
+    });
+    expect(rpc).toHaveBeenLastCalledWith(
+      'recruitment_automation_list',
+      expect.objectContaining({ p_enabled: true, p_limit: 20, p_offset: 20 }),
+    );
+    const result = await service.automationCatalog(actor, departmentId);
+    expect(rpc).toHaveBeenLastCalledWith('recruitment_require', {
+      p_actor: actor,
+      p_org: departmentId,
+      p_permission: 'jobs.view',
+    });
+    expect(result.total).toBe(AUTOMATION_CATALOG.length);
   });
 
   it('documents the jobs dashboard and job routes', async () => {
@@ -458,6 +578,9 @@ describe('Recruitment contract', () => {
         new DocumentBuilder().build(),
       );
       expect(doc.paths['/employer/jobs/metrics'].get).toBeDefined();
+      expect(doc.paths['/employer/automations'].get).toBeDefined();
+      expect(doc.paths['/employer/automations/enabled'].get).toBeDefined();
+      expect(doc.paths['/employer/automations/catalog'].get).toBeDefined();
       expect(doc.paths['/employer/jobs'].get?.responses['200']).toBeDefined();
       expect(doc.paths['/employer/jobs'].post?.responses['201']).toBeDefined();
       expect(doc.paths['/employer/jobs/{id}'].patch).toBeDefined();

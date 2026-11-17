@@ -11,8 +11,10 @@ import { resolveOrganization } from '../organization-context/resolve-organizatio
 import { mapDatabaseError } from '../supabase/database-error.mapper';
 import { SupabaseService } from '../supabase/supabase.service';
 import { NotificationService } from '../notifications/notification.service';
+import { AUTOMATION_CATALOG } from './automation-catalog';
 import {
   AdvanceCandidateDto,
+  AutomationListQueryDto,
   CandidateListQueryDto,
   CreateCandidateDto,
   CreateJobDto,
@@ -102,6 +104,34 @@ export class RecruitmentService {
       p_stage: stage,
       p_automation: automation,
       p_data: data,
+    });
+  }
+
+  async automationCatalog(actor: string, org: string) {
+    await this.rpc('recruitment_require', {
+      p_actor: actor,
+      p_org: org,
+      p_permission: 'jobs.view',
+    });
+    return {
+      schemaVersion: 1,
+      items: AUTOMATION_CATALOG,
+      total: AUTOMATION_CATALOG.length,
+    };
+  }
+
+  listAutomations(actor: string, org: string, q: AutomationListQueryDto) {
+    const paginated = q.page !== undefined || q.limit !== undefined;
+    const limit = paginated ? (q.limit ?? 50) : null;
+    return this.rpc('recruitment_automation_list', {
+      p_actor: actor,
+      p_org: org,
+      p_enabled: q.enabled ?? null,
+      p_job: q.jobId ?? null,
+      p_stage: q.stageId ?? null,
+      p_kind: q.kind ?? null,
+      p_limit: limit,
+      p_offset: limit === null ? 0 : ((q.page ?? 1) - 1) * limit,
     });
   }
 

@@ -438,3 +438,25 @@ export class ManagedAutomationsResponseDto {
   @ApiProperty({ example: 0 })
   total!: number;
 }
+
+export class ConfiguredAutomationDto extends StageAutomationResponseDto {
+  @ApiProperty({ format: 'uuid' }) jobId!: string;
+  @ApiProperty() jobTitle!: string;
+  @ApiProperty({ format: 'uuid' }) stageId!: string;
+  @ApiProperty() stageName!: string;
+  @ApiProperty() stageCategory!: string;
+  @ApiProperty() stageOrder!: number;
+  @ApiProperty({ format: 'date-time' }) createdAt!: string;
+}
+export class ConfiguredAutomationListDto {
+  @ApiProperty({ type: [ConfiguredAutomationDto] })
+  items!: ConfiguredAutomationDto[];
+  @ApiProperty({ example: 0 }) total!: number;
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description: 'Null when pagination is omitted',
+  })
+  limit!: number | null;
+  @ApiProperty({ example: 0 }) offset!: number;
+}

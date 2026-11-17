@@ -95,6 +95,14 @@ export class LeaveService {
     return { items, total, limit: items.length, offset: 0 };
   }
 
+  policy(actor: string, org: string, id: string) {
+    return this.rpc('leave_policy_detail', {
+      p_actor: actor,
+      p_org: org,
+      p_policy: id,
+    });
+  }
+
   savePolicy(
     actor: string,
     org: string,
@@ -121,24 +129,15 @@ export class LeaveService {
   }
 
   saveSettings(actor: string, org: string, dto: LeaveSettingsDto) {
-    return this.rpc('leave_mutate', {
+    return this.rpc('leave_settings_save', {
       p_actor: actor,
       p_org: org,
-      p_action: 'settings.save',
-      p_id: null,
       p_data: snake(dto),
     });
   }
 
-  async settings(actor: string, org: string) {
-    const { data, error } = await this.supabase.adminClient
-      .from('leave_settings')
-      .select('*')
-      .eq('organization_id', org)
-      .abortSignal(AbortSignal.timeout(10000))
-      .maybeSingle();
-    if (error) throw mapDatabaseError(error, 'load leave settings');
-    return camel(data ?? {}) as Record<string, unknown>;
+  settings(actor: string, org: string) {
+    return this.rpc('leave_settings_get', { p_actor: actor, p_org: org });
   }
 
   reports(actor: string, org: string) {

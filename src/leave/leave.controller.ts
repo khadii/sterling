@@ -28,6 +28,10 @@ import {
   UpdateLeavePolicyDto,
 } from './leave.dto';
 import { LeaveService } from './leave.service';
+import {
+  LeavePolicyResponseDto,
+  LeaveSettingsResponseDto,
+} from './leave-response.dto';
 
 @ApiTags('Employer Leave')
 @ApiBearerAuth()
@@ -70,6 +74,19 @@ export class LeaveController {
     return this.leave.savePolicy(req.user.id, await this.org(req), null, dto);
   }
 
+  @Get('policies/:id')
+  @ApiOperation({
+    summary:
+      'Get a leave policy by ID with all configuration, eligibility and approval fields',
+  })
+  @ApiOkResponse({ type: LeavePolicyResponseDto })
+  async policy(
+    @Req() req: RequestWithUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.leave.policy(req.user.id, await this.org(req), id);
+  }
+
   @Patch('policies/:id')
   @ApiOperation({ summary: 'Update a leave policy' })
   @ApiOkResponse()
@@ -92,15 +109,21 @@ export class LeaveController {
   }
 
   @Get('settings')
-  @ApiOperation({ summary: 'Get organization leave settings' })
-  @ApiOkResponse()
+  @ApiOperation({
+    summary:
+      'Get organization leave setup: annual dates, accrual toggles, notifications and carry-forward window',
+  })
+  @ApiOkResponse({ type: LeaveSettingsResponseDto })
   async settings(@Req() req: RequestWithUser) {
     return this.leave.settings(req.user.id, await this.org(req));
   }
 
   @Patch('settings')
-  @ApiOperation({ summary: 'Save organization leave settings' })
-  @ApiOkResponse()
+  @ApiOperation({
+    summary:
+      'Save organisation leave setup; omitted fields remain unchanged and carry-forward dates are month/day pairs',
+  })
+  @ApiOkResponse({ type: LeaveSettingsResponseDto })
   async saveSettings(
     @Req() req: RequestWithUser,
     @Body() dto: LeaveSettingsDto,

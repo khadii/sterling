@@ -4,7 +4,7 @@ import {
   ApiProperty,
   ApiPropertyOptional,
 } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
@@ -726,3 +726,54 @@ export class SaveStageAutomationsDto {
   @Type(() => SaveStageAutomationDto)
   items!: SaveStageAutomationDto[];
 }
+
+export class AutomationListQueryDto {
+  @ApiPropertyOptional({
+    type: Boolean,
+    description: 'true = enabled only; false = disabled only; omit for both',
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  @IsBoolean()
+  enabled?: boolean;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  jobId?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  stageId?: string;
+
+  @ApiPropertyOptional({ enum: AUTOMATION_KINDS })
+  @IsOptional()
+  @IsIn(AUTOMATION_KINDS)
+  kind?: string;
+
+  @ApiPropertyOptional({
+    type: Number,
+    description:
+      'Omit both page and limit to return all matching configured automations',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ type: Number, minimum: 1, maximum: 200 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  limit?: number;
+}
+export class EnabledAutomationListQueryDto extends OmitType(
+  AutomationListQueryDto,
+  ['enabled'] as const,
+) {}

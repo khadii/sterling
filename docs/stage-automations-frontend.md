@@ -1,5 +1,8 @@
 # Stage automations: frontend integration
 
+For workspace-wide all/enabled automation lists and the supported configuration
+catalogue, see [Automation discovery and leave setup](leave-setup-and-automation-discovery.md).
+
 This change adds dedicated endpoints for the automation page and pipeline editor.
 Apply `20261104190501_recruitment_stage_management.sql` after the earlier migrations,
 then deploy the backend before using these routes in production. No new environment

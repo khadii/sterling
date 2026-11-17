@@ -1,7 +1,8 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { SupabaseService } from '../supabase/supabase.service';
-import { LeavePolicyDto } from './leave.dto';
+import { LeavePolicyDto, LeaveSettingsDto } from './leave.dto';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { LeaveService } from './leave.service';
 
 const actor = '8a53bff5-a952-4ad7-b466-730659020a8e';
@@ -54,7 +55,7 @@ describe('LeaveService policy contract', () => {
     });
   });
 
-  it('saves settings through leave_mutate', async () => {
+  it('saves settings through the partial-update settings RPC', async () => {
     const { service, rpc } = clientReturning({
       leave_year_start_month: 1,
       carry_forward_enabled: true,
@@ -66,11 +67,9 @@ describe('LeaveService policy contract', () => {
       leaveYearEndDay: 31,
       carryForwardEnabled: true,
     });
-    expect(rpc).toHaveBeenCalledWith('leave_mutate', {
+    expect(rpc).toHaveBeenCalledWith('leave_settings_save', {
       p_actor: actor,
       p_org: org,
-      p_action: 'settings.save',
-      p_id: null,
       p_data: {
         leave_year_start_month: 1,
         leave_year_start_day: 1,
@@ -130,5 +129,92 @@ describe('Leave policy validation', () => {
     });
     const errors = await validate(instance);
     expect(errors.map((e) => e.property)).toContain('leaveType');
+  });
+});
+
+describe('Leave setup and policy lookup', () => {
+  it('loads a policy by ID without scanning the policy list', async () => {
+    const { service, rpc } = clientReturning({
+      id: policyId,
+      leave_type: 'annual',
+      days_per_year: 0,
+      allow_negative_balance: false,
+    });
+    await expect(service.policy(actor, org, policyId)).resolves.toMatchObject({
+      id: policyId,
+      leaveType: 'annual',
+      daysPerYear: 0,
+      allowNegativeBalance: false,
+    });
+    expect(rpc).toHaveBeenCalledWith('leave_policy_detail', {
+      p_actor: actor,
+      p_org: org,
+      p_policy: policyId,
+    });
+  });
+  it('loads permission-checked settings and preserves unsaved defaults', async () => {
+    const { service, rpc } = clientReturning({
+      organization_id: org,
+      isConfigured: false,
+      manager_notifications: false,
+      carry_forward_start_month: null,
+    });
+    await expect(service.settings(actor, org)).resolves.toMatchObject({
+      organizationId: org,
+      isConfigured: false,
+      managerNotifications: false,
+      carryForwardStartMonth: null,
+    });
+    expect(rpc).toHaveBeenCalledWith('leave_settings_get', {
+      p_actor: actor,
+      p_org: org,
+    });
+  });
+  it('maps missing and forbidden policy reads', async () => {
+    await expect(
+      clientReturning(null, {
+        code: 'P0002',
+        message: 'Not found',
+      }).service.policy(actor, org, policyId),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      clientReturning(null, {
+        code: '42501',
+        message: 'Permission required',
+      }).service.policy(actor, org, policyId),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+  it('accepts partial saves, real false toggles and carry-forward date fields', async () => {
+    const instance = plainToInstance(LeaveSettingsDto, {
+      managerNotifications: false,
+      carryForwardStartMonth: 12,
+      carryForwardStartDay: 1,
+      carryForwardEndMonth: 3,
+      carryForwardEndDay: 31,
+    });
+    expect(await validate(instance)).toHaveLength(0);
+    const { service, rpc } = clientReturning({});
+    await service.saveSettings(actor, org, instance);
+    expect(rpc).toHaveBeenCalledWith('leave_settings_save', {
+      p_actor: actor,
+      p_org: org,
+      p_data: {
+        manager_notifications: false,
+        carry_forward_start_month: 12,
+        carry_forward_start_day: 1,
+        carry_forward_end_month: 3,
+        carry_forward_end_day: 31,
+      },
+    });
+    expect(
+      await validate(
+        plainToInstance(LeaveSettingsDto, { carryForwardStartMonth: 13 }),
+      ),
+    ).not.toHaveLength(0);
+    expect(
+      await validate(
+        plainToInstance(LeaveSettingsDto, { managerNotifications: 'false' }),
+      ),
+    ).not.toHaveLength(0);
   });
 });
