@@ -289,6 +289,56 @@ describe('Recruitment contract', () => {
     expect(rpc).toHaveBeenCalledTimes(2);
   });
 
+  it('returns the department name alongside the id on list and detail', async () => {
+    const listService = new RecruitmentService({
+      adminClient: {
+        rpc: jest.fn(() => ({
+          abortSignal: jest.fn().mockResolvedValue({
+            data: {
+              items: [
+                {
+                  id: actor,
+                  department_id: departmentId,
+                  department_name: 'Product',
+                },
+              ],
+              total: 1,
+              limit: 1,
+              offset: 0,
+            },
+            error: null,
+          }),
+        })),
+      },
+    } as unknown as SupabaseService);
+    const list = await listService.listJobs(actor, actor, {});
+    expect(list.items[0]).toMatchObject({
+      departmentId: departmentId,
+      departmentName: 'Product',
+    });
+
+    const detailService = new RecruitmentService({
+      adminClient: {
+        rpc: jest.fn(() => ({
+          abortSignal: jest.fn().mockResolvedValue({
+            data: {
+              id: actor,
+              department_id: departmentId,
+              department_name: 'Product',
+              title: 'Senior Product Designer',
+            },
+            error: null,
+          }),
+        })),
+      },
+    } as unknown as SupabaseService);
+    const detail = await detailService.jobDetail(actor, actor, departmentId);
+    expect(detail).toMatchObject({
+      departmentId: departmentId,
+      departmentName: 'Product',
+    });
+  });
+
   it('drains queued notifications after a stage automation runs', async () => {
     const rpc = jest.fn(() => ({
       abortSignal: jest.fn().mockResolvedValue({
@@ -621,6 +671,12 @@ describe('Recruitment contract', () => {
       });
       expect(doc.components?.schemas?.ApplicationSourceDto).toMatchObject({
         properties: { percent: { type: 'number', nullable: true } },
+      });
+      expect(doc.components?.schemas?.RecruitmentJobListItemDto).toMatchObject({
+        properties: { departmentName: { type: 'string', nullable: true } },
+      });
+      expect(doc.components?.schemas?.RecruitmentJobDetailDto).toMatchObject({
+        properties: { departmentName: { type: 'string', nullable: true } },
       });
     } finally {
       await app.close();

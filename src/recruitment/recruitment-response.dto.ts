@@ -132,6 +132,12 @@ export class RecruitmentJobListItemDto {
   @ApiProperty({ example: 'open' })
   status!: string;
 
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true })
+  departmentId!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, example: 'Product' })
+  departmentName!: string | null;
+
   @ApiPropertyOptional({ type: String, nullable: true, example: 'JOB-0012' })
   reference!: string | null;
 
@@ -276,6 +282,12 @@ export class RecruitmentJobDetailDto {
 
   @ApiProperty({ example: 'draft' })
   status!: string;
+
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true })
+  departmentId!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, example: 'Product' })
+  departmentName!: string | null;
 
   @ApiProperty({ example: 0 })
   revision!: number;

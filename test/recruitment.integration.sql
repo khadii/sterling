@@ -65,6 +65,7 @@ begin
 
   result := recruitment_job_detail(actor,org,job);
   if jsonb_array_length(result->'stages') <> 5 then raise exception 'Stage set wrong'; end if;
+  if result->>'departmentName' is distinct from 'Product' then raise exception 'Department name missing from detail'; end if;
   if jsonb_array_length(result->'responsibilities') <> 2 then raise exception 'Responsibilities lost'; end if;
   if jsonb_array_length(result->'skills') <> 1 or jsonb_array_length(result->'benefits') <> 1 then
     raise exception 'Skills or benefits lost'; end if;
@@ -152,6 +153,9 @@ begin
   result := recruitment_job_list(actor,org,null,null,null,50,0);
   if (result->>'total')::integer <> 2 then raise exception 'Job list total wrong'; end if;
   if jsonb_array_length(result->'items') <> 2 then raise exception 'Job list items wrong'; end if;
+  if (select count(*) from jsonb_array_elements(result->'items') i
+      where i->>'departmentName' = 'Product') <> 1 then
+    raise exception 'Job list department name missing'; end if;
   if (select count(*) from jsonb_array_elements(result->'items') i
       where (i->>'applicationCount')::integer = 1) <> 1 then
     raise exception 'Job list applicant count wrong'; end if;

@@ -246,6 +246,38 @@ from the latest job read and the API returns `409 JOB_REVISION_CONFLICT` with
 `currentRevision` and `reloadUrl` when another writer got there first. Every job
 write is recorded in `job_revision_history`, so an overwrite is auditable.
 
+### Employee self-service
+
+Employees use the same bearer token as every other account. There is no separate
+employee sign-in: an employee is the same Supabase auth user, linked to the
+workspace through `organization_members` and to its HR record through
+`hr_employees.user_id`. These routes resolve the caller to its own employee row
+inside the database, so none of them accept an employee id, and an account
+without an employee record gets `404`.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| GET | `/api/v1/employee/profile` | Caller identity and employment summary |
+| GET | `/api/v1/employee/dashboard` | Announcements, clock state, agenda, leave, tasks, learning, review, team |
+| GET | `/api/v1/employee/leave` | Entitlements, upcoming leave, history, summary |
+| POST | `/api/v1/employee/leave` | Submit a leave request (starts pending) |
+| GET | `/api/v1/employee/leave/:id` | One request with its approval timeline |
+| POST | `/api/v1/employee/leave/:id/cancel` | Withdraw a pending request |
+| GET | `/api/v1/employee/attendance` | Clock sessions and attendance records |
+| POST | `/api/v1/employee/attendance/clock` | Clock in, out, or on and off a break |
+| GET | `/api/v1/employee/tasks` | Tasks assigned to the caller |
+| PATCH | `/api/v1/employee/tasks/:id` | Update an assigned task status |
+| GET | `/api/v1/employee/team` | Department and team colleagues with presence |
+| GET | `/api/v1/employee/documents` | Documents held for the caller |
+| GET | `/api/v1/employee/payslips` | Finalized payslips |
+| GET | `/api/v1/employee/announcements` | Published announcements |
+| GET | `/api/v1/employee/learning` | Course catalogue with the caller's progress |
+| PATCH | `/api/v1/employee/learning/:courseId` | Set course progress 0-100 |
+| GET | `/api/v1/employee/calendar` | Events the caller organizes or attends |
+
+See [docs/employee-self-service.md](docs/employee-self-service.md) for the screen
+mapping, the leave validation rules and the testing steps.
+
 ## Employer onboarding
 
 All routes below require a valid Supabase bearer token and the global `employer` account role. `GET /employer/onboarding` is the resume endpoint: call it after login and use `status`, `currentStep`, `completedSteps`, and `revision` to restore the UI. Draft writes require `expectedRevision`; if another tab or stale client has already written, the API returns `409 ONBOARDING_REVISION_CONFLICT` and the frontend must reload the latest state before retrying.
