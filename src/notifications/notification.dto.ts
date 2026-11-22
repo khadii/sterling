@@ -94,10 +94,21 @@ export class InvitationResponseDto {
   expiresAt!: string;
   @ApiPropertyOptional({ enum: ['queued'], example: 'queued' })
   emailStatus?: string;
+  @ApiPropertyOptional({
+    type: Boolean,
+    description:
+      'Whether the invited email already belongs to a registered account whose profile the employer can view',
+  })
+  isRegisteredUser?: boolean;
+  @ApiPropertyOptional({ type: String, format: 'date-time' })
+  createdAt?: string;
 }
 export class InvitationListResponseDto {
   @ApiProperty({ type: [InvitationResponseDto] })
   items!: InvitationResponseDto[];
+  @ApiProperty({ example: 3 }) total!: number;
+  @ApiProperty({ example: 1 }) page!: number;
+  @ApiProperty({ example: 50 }) limit!: number;
 }
 export class InvitationAcceptedResponseDto {
   @ApiProperty({ format: 'uuid' }) organizationId!: string;

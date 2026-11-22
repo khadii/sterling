@@ -5,7 +5,7 @@ import { Server } from 'node:http';
 import request from 'supertest';
 import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
 import { SupabaseService } from '../supabase/supabase.service';
-import { PublicJobListQueryDto } from './public-jobs.dto';
+import { PublicJobApplicationDto, PublicJobListQueryDto } from './public-jobs.dto';
 import { PublicJobsController } from './public-jobs.controller';
 import { RecruitmentService } from './recruitment.service';
 
@@ -106,6 +106,97 @@ describe('Public jobs board', () => {
       workArrangement: 'hybrid',
       salaryMin: 120000,
       postedOn: '2026-11-22',
+    });
+  });
+
+  it('validates the public application payload', async () => {
+    await expect(
+      pipe.transform(
+        {
+          fullName: 'Sarah Johnson',
+          email: 'sarah.johnson@example.com',
+          phone: '+2348012345678',
+          resumeUrl: 'https://example.com/sarah.pdf',
+          currentRole: 'UX Designer',
+          currentCompany: 'Google',
+        },
+        { type: 'body', metatype: PublicJobApplicationDto },
+      ),
+    ).resolves.toMatchObject({ fullName: 'Sarah Johnson', email: 'sarah.johnson@example.com' });
+    await expect(
+      pipe.transform(
+        { fullName: 'Sarah', email: 'not-an-email' },
+        { type: 'body', metatype: PublicJobApplicationDto },
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      pipe.transform(
+        { fullName: '', email: 'sarah@example.com' },
+        { type: 'body', metatype: PublicJobApplicationDto },
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('submits a public application through the jobs route', async () => {
+    const publicApply = jest.fn().mockResolvedValue({
+      id: '2cd538d0-441c-42f3-816c-92495ad508f5',
+      jobId: '2cd538d0-441c-42f3-816c-92495ad508f5',
+      jobTitle: 'Senior Product Designer',
+      fullName: 'Sarah Johnson',
+      email: 'sarah.johnson@example.com',
+      status: 'new',
+      appliedAt: '2026-11-22T12:00:00Z',
+    });
+    const module = await Test.createTestingModule({
+      controllers: [PublicJobsController],
+      providers: [{ provide: RecruitmentService, useValue: { publicApply } }],
+    }).compile();
+    const app = module.createNestApplication();
+    app.useGlobalPipes(pipe);
+    await app.init();
+    try {
+      await request(app.getHttpServer() as Server)
+        .post('/jobs/2cd538d0-441c-42f3-816c-92495ad508f5/apply')
+        .send({
+          fullName: 'Sarah Johnson',
+          email: 'sarah.johnson@example.com',
+        })
+        .expect(201);
+      expect(publicApply).toHaveBeenCalledWith(
+        '2cd538d0-441c-42f3-816c-92495ad508f5',
+        expect.objectContaining({ fullName: 'Sarah Johnson' }),
+      );
+
+      const doc = SwaggerModule.createDocument(
+        app,
+        new DocumentBuilder().build(),
+      );
+      expect(doc.paths['/jobs/{id}/apply'].post).toBeDefined();
+      expect(doc.paths['/jobs/{id}/apply'].post?.security).toBeUndefined();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('snake-cases the application payload for the RPC', async () => {
+    const rpc = jest.fn(() => ({
+      abortSignal: jest.fn().mockResolvedValue({ data: { id: 'x' }, error: null }),
+    }));
+    const service = new RecruitmentService({
+      adminClient: { rpc },
+    } as unknown as SupabaseService);
+    await service.publicApply('2cd538d0-441c-42f3-816c-92495ad508f5', {
+      fullName: 'Sarah Johnson',
+      email: 'sarah.johnson@example.com',
+      currentRole: 'UX Designer',
+    });
+    expect(rpc).toHaveBeenCalledWith('recruitment_public_apply', {
+      p_job: '2cd538d0-441c-42f3-816c-92495ad508f5',
+      p_data: {
+        full_name: 'Sarah Johnson',
+        email: 'sarah.johnson@example.com',
+        current_role: 'UX Designer',
+      },
     });
   });
 

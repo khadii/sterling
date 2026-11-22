@@ -232,6 +232,20 @@ begin
   if (recruitment_candidate_list(actor,org,job,null,null,'Sarah',50,0)->>'total')::integer <> 1 then
     raise exception 'Candidate search filter wrong'; end if;
 
+  -- Public application records a candidate without an authenticated actor and
+  -- routes it to the first pipeline stage.
+  result := recruitment_public_apply(job, jsonb_build_object(
+    'fullName','Public Applicant','email','public.applicant@example.com',
+    'currentRole','Designer','resumeUrl','https://example.com/resume.pdf'));
+  if result->>'status' is distinct from 'new' then raise exception 'Public application status wrong'; end if;
+  if (select source from candidates where id = (result->>'id')::uuid) is distinct from 'careers_page' then
+    raise exception 'Public application source wrong'; end if;
+  if (select stage_id is not null from candidates where id = (result->>'id')::uuid) is not true then
+    raise exception 'Public application not routed to a stage'; end if;
+  begin perform recruitment_public_apply(job, jsonb_build_object(
+    'fullName','Public Applicant','email','public.applicant@example.com'));
+    raise exception 'Duplicate public application accepted'; exception when unique_violation then null; end;
+
   -- Closed jobs are read-only until they are reopened.
   perform recruitment_mutate(actor,org,'job.status',job,jsonb_build_object('status','closed'));
   begin perform recruitment_mutate(actor,org,'job.save',job,jsonb_build_object('title','Blocked edit'));

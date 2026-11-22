@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PostgrestError } from '@supabase/supabase-js';
-import { camel } from '../common/serialize';
+import { camel, snake } from '../common/serialize';
 import { resolveOrganization } from '../organization-context/resolve-organization';
 import { mapDatabaseError } from '../supabase/database-error.mapper';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -22,7 +22,10 @@ import {
   UpdateCandidateDto,
   UpdateJobDto,
 } from './recruitment.dto';
-import { PublicJobListQueryDto } from './public-jobs.dto';
+import {
+  PublicJobApplicationDto,
+  PublicJobListQueryDto,
+} from './public-jobs.dto';
 
 /** Sentence case for the pages a client should reload after a conflict. */
 const JOB_RELOAD_URL = (id: string) => `/api/v1/employer/jobs/${id}`;
@@ -162,6 +165,13 @@ export class RecruitmentService {
       p_posted_to: q.postedTo ?? null,
       p_limit: q.limit ?? 50,
       p_offset: q.offset ?? 0,
+    });
+  }
+
+  publicApply(jobId: string, dto: PublicJobApplicationDto) {
+    return this.rpc<Record<string, unknown>>('recruitment_public_apply', {
+      p_job: jobId,
+      p_data: snake(dto),
     });
   }
 

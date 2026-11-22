@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsDateString,
+  IsEmail,
   IsIn,
   IsInt,
   IsOptional,
@@ -11,6 +12,7 @@ import {
   Max,
   MaxLength,
   Min,
+  MinLength,
 } from 'class-validator';
 import { EMPLOYMENT_TYPES, WORK_ARRANGEMENTS } from './recruitment.dto';
 
@@ -150,4 +152,64 @@ export class PublicJobListDto {
 
   @ApiProperty({ example: 0 })
   offset!: number;
+}
+
+export class PublicJobApplicationDto {
+  @ApiProperty({ minLength: 1, maxLength: 160, example: 'Sarah Johnson' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(160)
+  fullName!: string;
+
+  @ApiProperty({ format: 'email', example: 'sarah.johnson@example.com' })
+  @IsEmail()
+  @MaxLength(320)
+  email!: string;
+
+  @ApiPropertyOptional({ maxLength: 40, example: '+2348012345678' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  phone?: string;
+
+  @ApiPropertyOptional({ maxLength: 2048, description: 'Resume or portfolio URL' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  resumeUrl?: string;
+
+  @ApiPropertyOptional({ maxLength: 160, example: 'UX Designer' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  currentRole?: string;
+
+  @ApiPropertyOptional({ maxLength: 160, example: 'Google' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  currentCompany?: string;
+}
+
+export class PublicJobApplicationResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  jobId!: string;
+
+  @ApiProperty({ example: 'Senior Product Designer' })
+  jobTitle!: string;
+
+  @ApiProperty({ example: 'Sarah Johnson' })
+  fullName!: string;
+
+  @ApiProperty({ example: 'sarah.johnson@example.com' })
+  email!: string;
+
+  @ApiProperty({ example: 'new' })
+  status!: string;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  appliedAt!: string;
 }

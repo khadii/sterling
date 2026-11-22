@@ -143,28 +143,12 @@ export class NotificationController {
       query.organizationId,
     );
     await this.workflow.access(req.user.id, org, 'members.invite');
-    const { data, error } = await this.supabase.adminClient
-      .from('organization_invitations')
-      .select('id,email,status,expires_at,created_at,accepted_by')
-      .eq('organization_id', org)
-      .order('created_at', { ascending: false })
-      .range((query.page - 1) * query.limit, query.page * query.limit - 1);
-    if (error) throw mapDatabaseError(error, 'list invitations');
-    return {
-      items: (
-        data as {
-          id: string;
-          email: string;
-          status: string;
-          expires_at: string;
-        }[]
-      ).map((row) => ({
-        id: row.id,
-        email: row.email,
-        status: row.status,
-        expiresAt: row.expires_at,
-      })),
-    };
+    return this.notifications.rpc('list_organization_invitations', {
+      p_actor: req.user.id,
+      p_org: org,
+      p_page: query.page,
+      p_limit: query.limit,
+    });
   }
   @Delete('organization/invitations/:invitationId')
   @ApiOperation({ summary: 'Revoke a pending invitation' })
