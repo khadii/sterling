@@ -10,7 +10,7 @@ returns jsonb language sql immutable set search_path = public as $$
   select case p_category
     when 'assessment' then jsonb_build_array(
       jsonb_build_object('kind', 'email', 'label', 'Assessment Invitation',
-        'is_enabled', false, 'config', '{"recipient":"candidate"}'::jsonb),
+        'is_enabled', false, 'config', '{"recipient":"candidate","durationHours":72}'::jsonb),
       jsonb_build_object('kind', 'email', 'label', 'Assessment Deadline Reminder',
         'is_enabled', false, 'config', '{"recipient":"candidate","reminderHoursBefore":24}'::jsonb)
     )
@@ -24,27 +24,27 @@ returns jsonb language sql immutable set search_path = public as $$
       jsonb_build_object('kind', 'email', 'label', 'Interview Reminder',
         'is_enabled', true, 'config', '{"recipient":"candidate","timingHoursBefore":2}'::jsonb),
       jsonb_build_object('kind', 'reviewer_assignment', 'label', 'Interview Feedback Request',
-        'is_enabled', true, 'config', '{}'::jsonb),
+        'is_enabled', true, 'config', '{"windowHours":1}'::jsonb),
       jsonb_build_object('kind', 'custom', 'label', 'Interview Outcome Routing',
-        'is_enabled', false, 'config', '{"ratingThreshold":4}'::jsonb)
+        'is_enabled', false, 'config', '{"ratingThreshold":4,"scale":5}'::jsonb)
     )
     when 'offer' then jsonb_build_array(
       jsonb_build_object('kind', 'custom', 'label', 'Offer Approval',
-        'is_enabled', false, 'config', '{}'::jsonb),
+        'is_enabled', false, 'config', '{"approvers":"Finance & HR Lead"}'::jsonb),
       jsonb_build_object('kind', 'email', 'label', 'Offer Delivery and Follow-up',
         'is_enabled', false, 'config', '{"recipient":"candidate","followUpDays":3}'::jsonb),
       jsonb_build_object('kind', 'custom', 'label', 'Initiate Onboarding',
-        'is_enabled', false, 'config', '{}'::jsonb)
+        'is_enabled', false, 'config', '{"workflow":"Engineering & Product Starter Pack v2"}'::jsonb)
     )
     when 'screening' then jsonb_build_array(
       jsonb_build_object('kind', 'email', 'label', 'Application Acknowledgement',
-        'is_enabled', true, 'config', '{"recipient":"candidate","subject":"Application received"}'::jsonb),
+        'is_enabled', true, 'config', '{"recipient":"candidate","subject":"Application received","template":"Branded Receipt & Next Steps (English)"}'::jsonb),
       jsonb_build_object('kind', 'ai_evaluation', 'label', 'AI Match Scoring',
         'is_enabled', true, 'config', '{}'::jsonb),
       jsonb_build_object('kind', 'custom', 'label', 'Score Above Threshold',
-        'is_enabled', true, 'config', '{"threshold":85}'::jsonb),
+        'is_enabled', true, 'config', '{"threshold":85,"action":"advance"}'::jsonb),
       jsonb_build_object('kind', 'custom', 'label', 'Score Below Threshold',
-        'is_enabled', true, 'config', '{"threshold":50}'::jsonb),
+        'is_enabled', true, 'config', '{"threshold":50,"action":"flag","delayHours":48}'::jsonb),
       jsonb_build_object('kind', 'custom', 'label', 'Qualified Candidate Routing',
         'is_enabled', true, 'config', '{"score":80}'::jsonb)
     )
