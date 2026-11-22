@@ -4,9 +4,12 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { PostgrestError } from '@supabase/supabase-js';
+import { randomUUID } from 'node:crypto';
 import { camel, snake } from '../common/serialize';
+import { UploadedFile } from '../common/types/uploaded-file.type';
 import { resolveOrganization } from '../organization-context/resolve-organization';
 import { mapDatabaseError } from '../supabase/database-error.mapper';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -31,6 +34,14 @@ import {
 const JOB_RELOAD_URL = (id: string) => `/api/v1/employer/jobs/${id}`;
 const UNPAGINATED_PAGE = 200;
 const UNPAGINATED_MAX_PAGES = 50;
+const RESUME_BUCKET = 'resumes';
+const RESUME_MAX_SIZE = 5_242_880;
+const RESUME_CONTENT_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+];
 
 export interface PagedItems {
   items: Record<string, unknown>[];
@@ -168,11 +179,74 @@ export class RecruitmentService {
     });
   }
 
-  publicApply(jobId: string, dto: PublicJobApplicationDto) {
+  async publicApply(
+    jobId: string,
+    dto: PublicJobApplicationDto,
+    resume?: UploadedFile,
+  ) {
+    const resumeUrl = resume
+      ? await this.uploadResume(jobId, resume)
+      : dto.resumeUrl;
     return this.rpc<Record<string, unknown>>('recruitment_public_apply', {
       p_job: jobId,
-      p_data: snake(dto),
+      p_data: snake({ ...dto, resumeUrl }),
     });
+  }
+
+  private async uploadResume(jobId: string, resume: UploadedFile): Promise<string> {
+    if (!resume.size || resume.size > RESUME_MAX_SIZE) {
+      throw new BadRequestException('Resume must be between 1 byte and 5 MB');
+    }
+    if (!RESUME_CONTENT_TYPES.includes(resume.mimetype)) {
+      throw new BadRequestException(
+        'Resume must be a PDF, Word document or plain text file',
+      );
+    }
+    const extension = resume.mimetype === 'application/pdf'
+      ? 'pdf'
+      : resume.mimetype.includes('wordprocessingml')
+        ? 'docx'
+        : resume.mimetype === 'application/msword'
+          ? 'doc'
+          : 'txt';
+    const path = `${jobId}/${randomUUID()}/resume.${extension}`;
+    const { error } = await this.supabase.adminClient.storage
+      .from(RESUME_BUCKET)
+      .upload(path, resume.buffer, {
+        contentType: resume.mimetype,
+        upsert: false,
+      });
+    if (error) {
+      throw new ServiceUnavailableException('Unable to store resume upload');
+    }
+    return path;
+  }
+
+  async candidateResumeUrl(actor: string, org: string, candidateId: string) {
+    await this.rpc('recruitment_require', {
+      p_actor: actor,
+      p_org: org,
+      p_permission: 'jobs.view',
+    });
+    const { data, error } = await this.supabase.adminClient
+      .from('candidates')
+      .select('resume_url')
+      .eq('id', candidateId)
+      .eq('organization_id', org)
+      .maybeSingle();
+    if (error) throw mapDatabaseError(error, 'load candidate resume');
+    const row = data as { resume_url: string | null } | null;
+    if (!row?.resume_url) throw new NotFoundException('No resume attached');
+    if (/^https?:\/\//i.test(row.resume_url)) {
+      return { url: row.resume_url };
+    }
+    const { data: signed, error: signError } = await this.supabase.adminClient.storage
+      .from(RESUME_BUCKET)
+      .createSignedUrl(row.resume_url, 3600);
+    if (signError || !signed) {
+      throw new ServiceUnavailableException('Unable to sign resume download');
+    }
+    return { url: signed.signedUrl };
   }
 
   jobDetail(actor: string, org: string, id: string) {

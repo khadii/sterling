@@ -1,10 +1,23 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiConsumes,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { UploadedFile as UploadedFileData } from '../common/types/uploaded-file.type';
 import {
   PublicJobApplicationDto,
   PublicJobApplicationResponseDto,
@@ -29,15 +42,18 @@ export class PublicJobsController {
   }
 
   @Post(':id/apply')
+  @UseInterceptors(FileInterceptor('resume', { limits: { fileSize: 5_242_880 } }))
+  @ApiConsumes('multipart/form-data')
   @ApiCreatedResponse({ type: PublicJobApplicationResponseDto })
   @ApiOperation({
     summary:
-      'Apply to a published job without signing in; records the application and routes it to the first pipeline stage',
+      'Apply to a published job without signing in; accepts an optional resume file or a resume URL and routes the application to the first pipeline stage',
   })
   apply(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: PublicJobApplicationDto,
+    @UploadedFile() resume?: UploadedFileData,
   ) {
-    return this.recruitment.publicApply(id, dto);
+    return this.recruitment.publicApply(id, dto, resume);
   }
 }

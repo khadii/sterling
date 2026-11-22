@@ -246,6 +246,20 @@ begin
     'fullName','Public Applicant','email','public.applicant@example.com'));
     raise exception 'Duplicate public application accepted'; exception when unique_violation then null; end;
 
+  -- Hiring a candidate whose email matches a member creates an employee record
+  -- and starts onboarding.
+  result := recruitment_mutate(actor,org,'candidate.save',null,jsonb_build_object(
+    'jobId',job,'fullName','Internal Hire','email','rec-member@test.invalid','source','manual'));
+  perform recruitment_mutate(actor,org,'candidate.advance',(result->>'id')::uuid,
+    jsonb_build_object('stageId',(select id from job_pipeline_stages where job_id=job and name='Hired')));
+  if not exists(select 1 from hr_employees e join profiles p on p.id=e.user_id
+      where e.organization_id=org and lower(p.email)='rec-member@test.invalid') then
+    raise exception 'Hire did not create employee record'; end if;
+  if not exists(select 1 from hr_onboarding o join hr_employees e on e.id=o.employee_id
+      join profiles p on p.id=e.user_id
+      where e.organization_id=org and lower(p.email)='rec-member@test.invalid') then
+    raise exception 'Hire did not start onboarding'; end if;
+
   -- Closed jobs are read-only until they are reopened.
   perform recruitment_mutate(actor,org,'job.status',job,jsonb_build_object('status','closed'));
   begin perform recruitment_mutate(actor,org,'job.save',job,jsonb_build_object('title','Blocked edit'));

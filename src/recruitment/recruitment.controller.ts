@@ -541,4 +541,27 @@ export class RecruitmentController {
       dto,
     );
   }
+
+  @Get('candidates/:id/resume')
+  @ApiOkResponse({
+    description: 'Time-limited signed URL for an uploaded resume',
+    schema: {
+      type: 'object',
+      properties: { url: { type: 'string' } },
+    },
+  })
+  @ApiOperation({
+    summary:
+      'Get a short-lived signed download URL for a candidate resume; external URLs are returned unchanged',
+  })
+  async candidateResume(
+    @Req() req: RequestWithUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.recruitment.candidateResumeUrl(
+      req.user.id,
+      await this.org(req),
+      id,
+    );
+  }
 }

@@ -165,6 +165,7 @@ describe('Public jobs board', () => {
       expect(publicApply).toHaveBeenCalledWith(
         '2cd538d0-441c-42f3-816c-92495ad508f5',
         expect.objectContaining({ fullName: 'Sarah Johnson' }),
+        undefined,
       );
 
       const doc = SwaggerModule.createDocument(
@@ -198,6 +199,94 @@ describe('Public jobs board', () => {
         current_role: 'UX Designer',
       },
     });
+  });
+
+  it('uploads a resume file privately and stores its storage path', async () => {
+    const upload = jest.fn(() => ({ error: null }));
+    const storage = { from: jest.fn(() => ({ upload })) };
+    const rpc = jest.fn(() => ({
+      abortSignal: jest.fn().mockResolvedValue({ data: { id: 'x' }, error: null }),
+    }));
+    const service = new RecruitmentService({
+      adminClient: { rpc, storage },
+    } as unknown as SupabaseService);
+    const file = {
+      buffer: Buffer.from('pdf-bytes'),
+      mimetype: 'application/pdf',
+      originalname: 'resume.pdf',
+      size: 10,
+    };
+    await service.publicApply(
+      '2cd538d0-441c-42f3-816c-92495ad508f5',
+      { fullName: 'Sarah Johnson', email: 'sarah.johnson@example.com' },
+      file,
+    );
+    expect(upload).toHaveBeenCalledTimes(1);
+    const path = (upload.mock.calls[0] as unknown[])[0] as string;
+    expect(path).toMatch(/^2cd538d0-441c-42f3-816c-92495ad508f5\/.+\/resume\.pdf$/);
+    expect(rpc).toHaveBeenCalledWith('recruitment_public_apply', {
+      p_job: '2cd538d0-441c-42f3-816c-92495ad508f5',
+      p_data: expect.objectContaining({
+        resume_url: expect.stringMatching(/^2cd538d0-441c-42f3-816c-92495ad508f5\//),
+      }),
+    });
+  });
+
+  it('rejects unsupported resume file types', async () => {
+    const service = new RecruitmentService({
+      adminClient: { rpc: jest.fn(), storage: { from: jest.fn() } },
+    } as unknown as SupabaseService);
+    await expect(
+      service.publicApply(
+        '2cd538d0-441c-42f3-816c-92495ad508f5',
+        { fullName: 'Sarah', email: 'sarah@example.com' },
+        {
+          buffer: Buffer.from('x'),
+          mimetype: 'application/zip',
+          originalname: 'resume.zip',
+          size: 10,
+        },
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('signs an uploaded resume instead of exposing a public URL', async () => {
+    const createSignedUrl = jest.fn(() => ({
+      data: { signedUrl: 'https://signed.example.com/resume.pdf' },
+      error: null,
+    }));
+    const storage = {
+      from: jest.fn(() => ({ createSignedUrl })),
+    };
+    const rpc = jest.fn(() => ({
+      abortSignal: jest.fn().mockResolvedValue({ data: {}, error: null }),
+    }));
+    const from = jest.fn(() => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            maybeSingle: () =>
+              Promise.resolve({
+                data: { resume_url: '2cd538d0-441c-42f3-816c-92495ad508f5/resume.pdf' },
+                error: null,
+              }),
+          }),
+        }),
+      }),
+    }));
+    const service = new RecruitmentService({
+      adminClient: { rpc, storage, from },
+    } as unknown as SupabaseService);
+    const result = await service.candidateResumeUrl(
+      'actor-id',
+      '2cd538d0-441c-42f3-816c-92495ad508f5',
+      'candidate-id',
+    );
+    expect(result.url).toBe('https://signed.example.com/resume.pdf');
+    expect(createSignedUrl).toHaveBeenCalledWith(
+      '2cd538d0-441c-42f3-816c-92495ad508f5/resume.pdf',
+      3600,
+    );
   });
 
   it('serves the jobs route without an auth guard and documents it', async () => {
