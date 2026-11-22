@@ -6,6 +6,24 @@ declare
   org uuid; dep uuid; role_id uuid; owner_role uuid; job uuid; second_job uuid; cand uuid;
   stage_interview uuid; stage_offer uuid; result jsonb; revision integer;
 begin
+  -- The full automation catalog is 16 triggers across four stage categories:
+  -- 5 screening, 2 assessment, 6 interview, 3 offer, with no missing or
+  -- duplicate labels.
+  if (select count(*) from (values ('screening'), ('assessment'), ('interview'), ('offer')) c(cat)
+      cross join lateral jsonb_array_elements(recruitment_stage_automation_defaults(c.cat)) x) <> 16 then
+    raise exception 'Automation catalog total wrong'; end if;
+  if (select count(distinct label) from (values ('screening'), ('assessment'), ('interview'), ('offer')) c(cat)
+      cross join lateral jsonb_array_elements(recruitment_stage_automation_defaults(c.cat)) x) <> 16 then
+    raise exception 'Automation catalog has duplicate labels'; end if;
+  if jsonb_array_length(recruitment_stage_automation_defaults('screening')) <> 5 then
+    raise exception 'Screening automation catalog wrong'; end if;
+  if jsonb_array_length(recruitment_stage_automation_defaults('assessment')) <> 2 then
+    raise exception 'Assessment automation catalog wrong'; end if;
+  if jsonb_array_length(recruitment_stage_automation_defaults('interview')) <> 6 then
+    raise exception 'Interview automation catalog wrong'; end if;
+  if jsonb_array_length(recruitment_stage_automation_defaults('offer')) <> 3 then
+    raise exception 'Offer automation catalog wrong'; end if;
+
   insert into auth.users(id,email,email_confirmed_at) values
     (actor,'rec-owner@test.invalid',now()),(member,'rec-member@test.invalid',now()),(other,'rec-other@test.invalid',now());
   insert into organizations(name,industry_id,company_size,created_by)
