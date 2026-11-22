@@ -22,6 +22,7 @@ import {
   UpdateCandidateDto,
   UpdateJobDto,
 } from './recruitment.dto';
+import { PublicJobListQueryDto } from './public-jobs.dto';
 
 /** Sentence case for the pages a client should reload after a conflict. */
 const JOB_RELOAD_URL = (id: string) => `/api/v1/employer/jobs/${id}`;
@@ -140,6 +141,27 @@ export class RecruitmentService {
       p_actor: actor,
       p_org: org,
       p_date: date ?? null,
+    });
+  }
+
+  publicJobs(q: PublicJobListQueryDto) {
+    return this.rpc<{
+      items: Record<string, unknown>[];
+      total: number;
+      limit: number;
+      offset: number;
+    }>('recruitment_public_jobs', {
+      p_org: q.organizationId ?? null,
+      p_search: q.search ?? null,
+      p_organization: q.organization ?? null,
+      p_department: q.department ?? null,
+      p_work_arrangement: q.workArrangement ?? null,
+      p_employment_type: q.employmentType ?? null,
+      p_location: q.location ?? null,
+      p_posted_from: q.postedFrom ?? null,
+      p_posted_to: q.postedTo ?? null,
+      p_limit: q.limit ?? 50,
+      p_offset: q.offset ?? 0,
     });
   }
 

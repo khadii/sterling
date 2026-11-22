@@ -71,17 +71,54 @@ begin
     raise exception 'Skills or benefits lost'; end if;
   if jsonb_array_length(result->'channels') <> 4 then raise exception 'Default publishing channels missing'; end if;
   if result#>>'{channels,0,channel}' is distinct from 'careers_page' then raise exception 'Careers page channel missing'; end if;
-  if (result->>'automationPercent')::numeric is distinct from 20 then raise exception 'Automation coverage wrong'; end if;
+  if (result->>'automationPercent')::numeric is distinct from 40 then raise exception 'Automation coverage wrong'; end if;
   if result#>>'{hiringTeam,0,userId}' is distinct from member::text then raise exception 'Hiring team member lost'; end if;
   if result#>>'{hiringTeam,0,roleLabel}' is distinct from 'Hiring Lead' then raise exception 'Hiring team role lost'; end if;
   if (result#>>'{stages,2,assessment,passingPercent}')::numeric is distinct from 80 then
     raise exception 'Assessment configuration lost'; end if;
+  -- Seeded automation catalog: a configured stage is prefilled with its
+  -- category's triggers and a concrete on/off state, never an empty list.
+  if (select jsonb_array_length(s->'automations') from jsonb_array_elements(result->'stages') s
+      where s->>'name' = 'Interview') <> 6 then
+    raise exception 'Interview automation catalog not prefilled'; end if;
+  if (select jsonb_array_length(s->'automations') from jsonb_array_elements(result->'stages') s
+      where s->>'name' = 'Assessment') <> 2 then
+    raise exception 'Assessment automation catalog not prefilled'; end if;
+  if (select jsonb_array_length(s->'automations') from jsonb_array_elements(result->'stages') s
+      where s->>'name' = 'Offer') <> 3 then
+    raise exception 'Offer automation catalog not prefilled'; end if;
+  if (select count(*) from jsonb_array_elements(result->'stages') s,
+      jsonb_array_elements(s->'automations') a
+    where s->>'name' = 'Interview' and (a->>'isEnabled')::boolean) <> 5 then
+    raise exception 'Interview automation on/off defaults wrong'; end if;
 
   -- Publishing requires a pipeline and is idempotent-safe.
   result := recruitment_mutate(actor,org,'job.publish',job,'{}');
   if result->>'status' is distinct from 'open' or result->>'public_slug' is null then raise exception 'Publish failed'; end if;
   begin perform recruitment_mutate(actor,org,'job.status',job,jsonb_build_object('status','open'));
     raise exception 'Already open job accepted a reopen'; exception when invalid_parameter_value then null; end;
+  -- The public board is unauthenticated and returns published jobs with their
+  -- organisation and department names joined in.
+  result := recruitment_public_jobs(null,null,null,null,null,null,null,null,null,50,0);
+  if (result->>'total')::integer <> 1 then raise exception 'Public jobs total wrong'; end if;
+  if result#>>'{items,0,title}' is distinct from 'Senior Product Designer' then
+    raise exception 'Public job title wrong'; end if;
+  if result#>>'{items,0,organizationName}' is distinct from 'Recruitment' then
+    raise exception 'Public job organization name wrong'; end if;
+  if result#>>'{items,0,departmentName}' is distinct from 'Product' then
+    raise exception 'Public job department name wrong'; end if;
+  if (recruitment_public_jobs(null,'designer',null,null,null,null,null,null,null,50,0)->>'total')::integer <> 1 then
+    raise exception 'Public jobs search filter wrong'; end if;
+  if (recruitment_public_jobs(null,null,'Recruitment',null,null,null,null,null,null,50,0)->>'total')::integer <> 1 then
+    raise exception 'Public jobs organization filter wrong'; end if;
+  if (recruitment_public_jobs(null,null,null,null,'hybrid',null,null,null,null,50,0)->>'total')::integer <> 1 then
+    raise exception 'Public jobs work-arrangement filter wrong'; end if;
+  if (recruitment_public_jobs(null,null,null,null,'remote',null,null,null,null,50,0)->>'total')::integer <> 0 then
+    raise exception 'Public jobs work-arrangement filter wrong'; end if;
+  if (recruitment_public_jobs(null,null,null,null,null,null,null,'2000-01-01','2999-01-01',50,0)->>'total')::integer <> 1 then
+    raise exception 'Public jobs date range filter wrong'; end if;
+  if (recruitment_public_jobs(null,null,null,null,null,null,null,'2000-01-01','2000-12-31',50,0)->>'total')::integer <> 0 then
+    raise exception 'Public jobs date range exclusion wrong'; end if;
 
   -- Candidates move through the configured stages and keep a full history.
   result := recruitment_mutate(actor,org,'candidate.save',null,jsonb_build_object(
