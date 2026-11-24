@@ -7,3 +7,10 @@ coverage/
 .vercel/
 *.log
 .DS_Store
+
+# Local AI handoff materials must not be committed
+/PROJECT_HANDBOOK.md
+/SOURCE_PART_*.txt
+/SOURCE_SNAPSHOT.zip
+/BROWSER_AI_UPLOAD_FILES.zip
+/hrhiring-ai-handoff/

@@ -14,6 +14,7 @@ import {
   ApiConsumes,
   ApiCreatedResponse,
   ApiOkResponse,
+  ApiNotFoundResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
@@ -22,6 +23,7 @@ import {
   PublicJobApplicationDto,
   PublicJobApplicationResponseDto,
   PublicJobListDto,
+  PublicJobDetailDto,
   PublicJobListQueryDto,
 } from './public-jobs.dto';
 import { RecruitmentService } from './recruitment.service';
@@ -39,6 +41,14 @@ export class PublicJobsController {
   })
   list(@Query() q: PublicJobListQueryDto) {
     return this.recruitment.publicJobs(q);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a published, open job by its ID without authentication' })
+  @ApiOkResponse({ type: PublicJobDetailDto })
+  @ApiNotFoundResponse({ description: 'Job not found or not publicly available' })
+  detail(@Param('id', ParseUUIDPipe) id: string) {
+    return this.recruitment.publicJobDetail(id);
   }
 
   @Post(':id/apply')

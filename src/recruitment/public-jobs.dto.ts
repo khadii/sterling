@@ -140,6 +140,37 @@ export class PublicJobListItemDto {
   closesOn!: string | null;
 }
 
+export class PublicJobResponsibilityDto {
+  @ApiProperty() body!: string;
+  @ApiProperty() displayOrder!: number;
+}
+
+export class PublicJobQualificationDto extends PublicJobResponsibilityDto {
+  @ApiProperty({ enum: ['must_have', 'preferred'] }) kind!: string;
+}
+
+export class PublicJobSkillDto {
+  @ApiProperty() name!: string;
+  @ApiPropertyOptional({ type: String, nullable: true }) level!: string | null;
+  @ApiProperty() isRequired!: boolean;
+  @ApiProperty() displayOrder!: number;
+}
+
+export class PublicJobBenefitDto {
+  @ApiProperty() label!: string;
+  @ApiProperty() displayOrder!: number;
+}
+
+export class PublicJobDetailDto extends PublicJobListItemDto {
+  @ApiPropertyOptional({ type: Number, nullable: true }) experienceMinYears!: number | null;
+  @ApiPropertyOptional({ type: String, nullable: true }) educationRequirement!: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true }) primaryTooling!: string | null;
+  @ApiProperty({ type: [PublicJobResponsibilityDto] }) responsibilities!: PublicJobResponsibilityDto[];
+  @ApiProperty({ type: [PublicJobQualificationDto] }) qualifications!: PublicJobQualificationDto[];
+  @ApiProperty({ type: [PublicJobSkillDto] }) skills!: PublicJobSkillDto[];
+  @ApiProperty({ type: [PublicJobBenefitDto] }) benefits!: PublicJobBenefitDto[];
+}
+
 export class PublicJobListDto {
   @ApiProperty({ type: [PublicJobListItemDto] })
   items!: PublicJobListItemDto[];

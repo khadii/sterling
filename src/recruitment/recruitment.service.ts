@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { PostgrestError } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
-import { camel, snake } from '../common/serialize';
+import { camel } from '../common/serialize';
 import { UploadedFile } from '../common/types/uploaded-file.type';
 import { resolveOrganization } from '../organization-context/resolve-organization';
 import { mapDatabaseError } from '../supabase/database-error.mapper';
@@ -179,6 +179,32 @@ export class RecruitmentService {
     });
   }
 
+  async publicJobDetail(id: string) {
+    // Explicit projection avoids exposing internal hiring and workflow data.
+    const { data, error } = await this.supabase.adminClient.from('jobs')
+      .select(`id,public_slug,title,summary,organization_id,work_arrangement,employment_type,
+        seniority_level,location_city,location_country,salary_min,salary_max,currency,posted_on,closes_on,
+        experience_min_years,education_requirement,primary_tooling,
+        organizations!inner(name),departments(name),
+        job_responsibilities(body,display_order),job_qualifications(body,kind,display_order),
+        job_skills(name,level,is_required,display_order),job_benefits(label,display_order)`)
+      .eq('id', id).eq('status', 'open').not('published_at', 'is', null)
+      .maybeSingle();
+    if (error) throw mapDatabaseError(error, 'load public job');
+    if (!data) throw new NotFoundException('Job not found or not publicly available');
+    const row = data as unknown as Record<string, unknown>;
+    const named = (value: unknown) => {
+      const item = Array.isArray(value) ? value[0] : value;
+      return item && typeof item === 'object' ? (item as { name?: string }).name ?? null : null;
+    };
+    const ordered = (value: unknown) => Array.isArray(value)
+      ? [...value].sort((a, b) => a.display_order - b.display_order) : [];
+    const { organizations, departments, job_responsibilities, job_qualifications, job_skills, job_benefits, ...job } = row;
+    return camel({ ...job, organization_name: named(organizations), department_name: named(departments),
+      responsibilities: ordered(job_responsibilities), qualifications: ordered(job_qualifications),
+      skills: ordered(job_skills), benefits: ordered(job_benefits) });
+  }
+
   async publicApply(
     jobId: string,
     dto: PublicJobApplicationDto,
@@ -189,7 +215,7 @@ export class RecruitmentService {
       : dto.resumeUrl;
     return this.rpc<Record<string, unknown>>('recruitment_public_apply', {
       p_job: jobId,
-      p_data: snake({ ...dto, resumeUrl }),
+      p_data: { ...dto, ...(resumeUrl !== undefined ? { resumeUrl } : {}) },
     });
   }
 

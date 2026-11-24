@@ -179,7 +179,7 @@ describe('Public jobs board', () => {
     }
   });
 
-  it('snake-cases the application payload for the RPC', async () => {
+  it('passes the camelCase application payload expected by the database', async () => {
     const rpc = jest.fn(() => ({
       abortSignal: jest.fn().mockResolvedValue({ data: { id: 'x' }, error: null }),
     }));
@@ -190,13 +190,17 @@ describe('Public jobs board', () => {
       fullName: 'Sarah Johnson',
       email: 'sarah.johnson@example.com',
       currentRole: 'UX Designer',
+      currentCompany: 'Google',
+      resumeUrl: 'https://example.com/resume.pdf',
     });
     expect(rpc).toHaveBeenCalledWith('recruitment_public_apply', {
       p_job: '2cd538d0-441c-42f3-816c-92495ad508f5',
       p_data: {
-        full_name: 'Sarah Johnson',
+        fullName: 'Sarah Johnson',
         email: 'sarah.johnson@example.com',
-        current_role: 'UX Designer',
+        currentRole: 'UX Designer',
+        currentCompany: 'Google',
+        resumeUrl: 'https://example.com/resume.pdf',
       },
     });
   });
@@ -227,7 +231,7 @@ describe('Public jobs board', () => {
     expect(rpc).toHaveBeenCalledWith('recruitment_public_apply', {
       p_job: '2cd538d0-441c-42f3-816c-92495ad508f5',
       p_data: expect.objectContaining({
-        resume_url: expect.stringMatching(/^2cd538d0-441c-42f3-816c-92495ad508f5\//),
+        resumeUrl: expect.stringMatching(/^2cd538d0-441c-42f3-816c-92495ad508f5\//),
       }),
     });
   });
@@ -291,9 +295,10 @@ describe('Public jobs board', () => {
 
   it('serves the jobs route without an auth guard and documents it', async () => {
     const publicJobs = jest.fn().mockResolvedValue({ items: [], total: 0, limit: 50, offset: 0 });
+    const publicJobDetail = jest.fn().mockResolvedValue({ id: '2cd538d0-441c-42f3-816c-92495ad508f5', title: 'Designer' });
     const module = await Test.createTestingModule({
       controllers: [PublicJobsController],
-      providers: [{ provide: RecruitmentService, useValue: { publicJobs } }],
+      providers: [{ provide: RecruitmentService, useValue: { publicJobs, publicJobDetail } }],
     }).compile();
     const app = module.createNestApplication();
     app.useGlobalPipes(pipe);
@@ -306,11 +311,16 @@ describe('Public jobs board', () => {
         expect.objectContaining({ workArrangement: 'remote' }),
       );
 
+      await request(app.getHttpServer() as Server).get('/jobs/2cd538d0-441c-42f3-816c-92495ad508f5').expect(200);
+      expect(publicJobDetail).toHaveBeenCalledWith('2cd538d0-441c-42f3-816c-92495ad508f5');
+      await request(app.getHttpServer() as Server).get('/jobs/not-a-uuid').expect(400);
       const doc = SwaggerModule.createDocument(
         app,
         new DocumentBuilder().build(),
       );
       expect(doc.paths['/jobs'].get).toBeDefined();
+      expect(doc.paths['/jobs/{id}'].get).toBeDefined();
+      expect(doc.paths['/jobs/{id}'].get?.security).toBeUndefined();
       expect(doc.paths['/jobs'].get?.security).toBeUndefined();
       expect(doc.components?.schemas?.PublicJobListItemDto).toMatchObject({
         properties: {
@@ -321,5 +331,30 @@ describe('Public jobs board', () => {
     } finally {
       await app.close();
     }
+  });
+});
+
+describe('public job detail', () => {
+  const id = '2cd538d0-441c-42f3-816c-92495ad508f5';
+  function setup(data: unknown, error: unknown = null) {
+    const query: Record<string, jest.Mock> = {};
+    for (const method of ['select', 'eq', 'not']) query[method] = jest.fn(() => query);
+    query.maybeSingle = jest.fn().mockResolvedValue({ data, error });
+    const from = jest.fn(() => query);
+    return { query, service: new RecruitmentService({ adminClient: { from } } as unknown as SupabaseService) };
+  }
+  it('returns public fields, named department and ordered details only for open published jobs', async () => {
+    const { service, query } = setup({ id, title: 'Designer', organizations: { name: 'Acme' },
+      departments: { name: 'Product' }, job_responsibilities: [{ body: 'Second', display_order: 2 }, { body: 'First', display_order: 1 }],
+      job_qualifications: [], job_skills: [], job_benefits: [] });
+    await expect(service.publicJobDetail(id)).resolves.toMatchObject({ id, title: 'Designer',
+      organizationName: 'Acme', departmentName: 'Product', responsibilities: [{ body: 'First', displayOrder: 1 }, { body: 'Second', displayOrder: 2 }], benefits: [] });
+    expect(query.eq).toHaveBeenCalledWith('status', 'open');
+    expect(query.not).toHaveBeenCalledWith('published_at', 'is', null);
+    expect(query.select.mock.calls[0][0]).not.toMatch(/candidate|automation|expected_answer/);
+  });
+  it('returns 404 when the job is absent or not publicly available', async () => {
+    const { service } = setup(null);
+    await expect(service.publicJobDetail(id)).rejects.toMatchObject({ status: 404 });
   });
 });
