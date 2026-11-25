@@ -32,6 +32,82 @@ separate `numberOfStages` property. The maximum is 30 stages, each with up to 20
 rules. Categories are `screening`, `interview`, `assessment`, `offer`, `hired`, `other`;
 the creator chooses names and order, rather than being forced to use five stages.
 
+## Configure automations before creating a stage
+
+Call `GET /api/v1/employer/automations/catalog` with the workspace token and,
+when needed, `X-Organization-Id`. Its existing `items` array describes the five
+supported technical kinds; `templates` contains all 16 named screen presets,
+each with a stable template `id`, `category`, `kind`, `label`, `isEnabled`,
+`config`, and the kind's `configFields`, `status`, `executable` and
+`executionNote`. `templateTotal` is 16. A template ID is not a database ID.
+
+### Catalog response and form mapping
+
+The response below is shortened to show one template; the actual response has
+five entries in `items` and 16 in `templates`:
+
+```json
+{
+  "schemaVersion": 1,
+  "items": [],
+  "total": 5,
+  "templates": [{
+    "id": "interview_scheduling",
+    "category": "interview",
+    "kind": "calendar",
+    "label": "Interview Scheduling",
+    "isEnabled": true,
+    "config": {},
+    "configFields": [
+      { "key": "delayHours", "name": "Delay hours", "type": "integer", "description": "Hours after stage entry if startsAt is omitted.", "required": false, "minimum": 0, "maximum": 8760, "default": 24 },
+      { "key": "durationMinutes", "name": "Duration minutes", "type": "integer", "description": "Interview duration when endsAt is omitted.", "required": false, "minimum": 15, "maximum": 480, "default": 30 }
+    ],
+    "status": "ready",
+    "executable": true,
+    "executionNote": "Creates an internal company-calendar event and interview record. Does not sync Google/Outlook or provide self-booking. Preset-specific fields not listed in configFields are stored only; the label does not add behavior."
+  }],
+  "templateTotal": 16
+}
+```
+
+This excerpt omits the other generic calendar fields and templates. Filter
+`templates` by `category` to display the matching stage options. Use each
+`configFields` entry to render a control; `default` is a suggested value and
+is not automatically inserted into `config`. Preserve any existing values in
+`config`, including `false` and `0`. `configFields` describes the generic
+kind, so preset keys absent from that list are stored but not executed. The
+switch only controls `isEnabled`; `status` and `executable` describe the
+underlying kind, not whether the preset's advertised workflow is complete.
+
+### Create the stage with its configuration
+
+Choose the stage category and edit local copies of the relevant templates. When
+the user creates the stage, send only `kind`, `label`, `isEnabled` and `config`
+for each selected item in the stage's `automations` array. The stage and the
+submitted rules are saved in the same database transaction. If any rules are
+supplied, the server does not also seed the other defaults: send every preset
+that should appear, including switched-off ones. If no rules are supplied,
+the existing server defaults apply. Fetch the saved stage and use returned
+UUIDs for subsequent edits.
+
+The fields in `configFields` describe what the generic executor understands.
+Some design-specific keys in `config` are stored only; enabled means a switch
+is on, and does not mean that reminders, AI, self-scheduling, or other named
+features are implemented. Display `executionNote` to communicate this.
+
+Example stage creation body:
+
+```json
+{
+  "name": "Technical interview",
+  "category": "interview",
+  "automations": [{
+    "kind": "calendar", "label": "Interview Scheduling", "isEnabled": true,
+    "config": { "delayHours": 24, "durationMinutes": 60 }
+  }]
+}
+```
+
 ## Frontend sequence
 
 1. Create the job draft with `POST /api/v1/employer/jobs` and retain its returned `id`.

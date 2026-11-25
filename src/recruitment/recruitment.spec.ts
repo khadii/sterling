@@ -17,7 +17,7 @@ import { NotificationService } from '../notifications/notification.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { RecruitmentController } from './recruitment.controller';
 import { RecruitmentService } from './recruitment.service';
-import { AUTOMATION_CATALOG } from './automation-catalog';
+import { AUTOMATION_CATALOG, AUTOMATION_TEMPLATES } from './automation-catalog';
 import {
   AdvanceCandidateDto,
   AutomationListQueryDto,
@@ -611,6 +611,21 @@ describe('Recruitment contract', () => {
       p_permission: 'jobs.view',
     });
     expect(result.total).toBe(AUTOMATION_CATALOG.length);
+    expect(result.templateTotal).toBe(16);
+    expect(result.templates).toHaveLength(16);
+    expect(result.templates.find((t) => t.id === 'interview_reminder')).toMatchObject({
+      category: 'interview', kind: 'email', isEnabled: true,
+      config: { recipient: 'candidate', timingHoursBefore: 2 },
+      executionNote: expect.stringContaining('stored only'),
+    });
+    expect(result.templates.find((t) => t.id === 'ai_match_scoring')).toMatchObject({
+      executable: false, status: 'deferred',
+    });
+    expect(new Set(AUTOMATION_TEMPLATES.map((t) => t.id)).size).toBe(16);
+    expect(AUTOMATION_TEMPLATES.filter((t) => t.category === 'screening')).toHaveLength(5);
+    expect(AUTOMATION_TEMPLATES.filter((t) => t.category === 'assessment')).toHaveLength(2);
+    expect(AUTOMATION_TEMPLATES.filter((t) => t.category === 'interview')).toHaveLength(6);
+    expect(AUTOMATION_TEMPLATES.filter((t) => t.category === 'offer')).toHaveLength(3);
   });
 
   it('documents the jobs dashboard and job routes', async () => {

@@ -213,6 +213,27 @@ export const AUTOMATION_CATALOG = [
   },
 ] as const;
 
+/** Design presets. Values mirror the database seed migration; they are editable
+ * configuration, not a promise that the named workflow is implemented. */
+export const AUTOMATION_TEMPLATES = [
+  { id: 'application_acknowledgement', category: 'screening', kind: 'email', label: 'Application Acknowledgement', isEnabled: true, config: { recipient: 'candidate', subject: 'Application received', template: 'Branded Receipt & Next Steps (English)' } },
+  { id: 'ai_match_scoring', category: 'screening', kind: 'ai_evaluation', label: 'AI Match Scoring', isEnabled: true, config: {} },
+  { id: 'score_above_threshold', category: 'screening', kind: 'custom', label: 'Score Above Threshold', isEnabled: true, config: { threshold: 85, action: 'advance' } },
+  { id: 'score_below_threshold', category: 'screening', kind: 'custom', label: 'Score Below Threshold', isEnabled: true, config: { threshold: 50, action: 'flag', delayHours: 48 } },
+  { id: 'qualified_candidate_routing', category: 'screening', kind: 'custom', label: 'Qualified Candidate Routing', isEnabled: true, config: { score: 80 } },
+  { id: 'assessment_invitation', category: 'assessment', kind: 'email', label: 'Assessment Invitation', isEnabled: false, config: { recipient: 'candidate', durationHours: 72 } },
+  { id: 'assessment_deadline_reminder', category: 'assessment', kind: 'email', label: 'Assessment Deadline Reminder', isEnabled: false, config: { recipient: 'candidate', reminderHoursBefore: 24 } },
+  { id: 'interview_scheduling', category: 'interview', kind: 'calendar', label: 'Interview Scheduling', isEnabled: true, config: {} },
+  { id: 'candidate_self_scheduling', category: 'interview', kind: 'calendar', label: 'Candidate Self-Scheduling', isEnabled: true, config: { bufferMinutes: 15, slotDurationMinutes: 60 } },
+  { id: 'interview_confirmation', category: 'interview', kind: 'email', label: 'Interview Confirmation', isEnabled: true, config: { recipient: 'candidate' } },
+  { id: 'interview_reminder', category: 'interview', kind: 'email', label: 'Interview Reminder', isEnabled: true, config: { recipient: 'candidate', timingHoursBefore: 2 } },
+  { id: 'interview_feedback_request', category: 'interview', kind: 'reviewer_assignment', label: 'Interview Feedback Request', isEnabled: true, config: { windowHours: 1 } },
+  { id: 'interview_outcome_routing', category: 'interview', kind: 'custom', label: 'Interview Outcome Routing', isEnabled: false, config: { ratingThreshold: 4, scale: 5 } },
+  { id: 'offer_approval', category: 'offer', kind: 'custom', label: 'Offer Approval', isEnabled: false, config: { approvers: 'Finance & HR Lead' } },
+  { id: 'offer_delivery_follow_up', category: 'offer', kind: 'email', label: 'Offer Delivery and Follow-up', isEnabled: false, config: { recipient: 'candidate', followUpDays: 3 } },
+  { id: 'initiate_onboarding', category: 'offer', kind: 'custom', label: 'Initiate Onboarding', isEnabled: false, config: { workflow: 'Engineering & Product Starter Pack v2' } },
+] as const;
+
 export class AutomationConfigFieldDto {
   @ApiProperty() key!: string;
   @ApiProperty() name!: string;
@@ -244,9 +265,23 @@ export class AutomationCatalogItemDto {
   configFields!: AutomationConfigFieldDto[];
   @ApiProperty({ type: Object }) configExample!: Record<string, unknown>;
 }
+export class AutomationTemplateDto {
+  @ApiProperty({ description: 'Stable frontend template key; not a saved automation ID' }) id!: string;
+  @ApiProperty({ enum: ['screening', 'assessment', 'interview', 'offer'] }) category!: string;
+  @ApiProperty() kind!: string;
+  @ApiProperty() label!: string;
+  @ApiProperty({ description: 'Seed default, not proof that the workflow executes' }) isEnabled!: boolean;
+  @ApiProperty({ type: Object, description: 'Editable preset values; some keys are stored only and are not acted on' }) config!: Record<string, unknown>;
+  @ApiProperty({ type: [AutomationConfigFieldDto], description: 'Fields currently understood by this automation kind' }) configFields!: AutomationConfigFieldDto[];
+  @ApiProperty({ enum: ['ready', 'deferred', 'configuration_only'] }) status!: string;
+  @ApiProperty() executable!: boolean;
+  @ApiProperty() executionNote!: string;
+}
 export class AutomationCatalogResponseDto {
   @ApiProperty({ example: 1 }) schemaVersion!: number;
   @ApiProperty({ type: [AutomationCatalogItemDto] })
   items!: AutomationCatalogItemDto[];
   @ApiProperty({ example: 5 }) total!: number;
+  @ApiProperty({ type: [AutomationTemplateDto], description: 'Named design presets available before a job or stage exists' }) templates!: AutomationTemplateDto[];
+  @ApiProperty({ example: 16 }) templateTotal!: number;
 }

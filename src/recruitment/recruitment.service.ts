@@ -14,7 +14,7 @@ import { resolveOrganization } from '../organization-context/resolve-organizatio
 import { mapDatabaseError } from '../supabase/database-error.mapper';
 import { SupabaseService } from '../supabase/supabase.service';
 import { NotificationService } from '../notifications/notification.service';
-import { AUTOMATION_CATALOG } from './automation-catalog';
+import { AUTOMATION_CATALOG, AUTOMATION_TEMPLATES } from './automation-catalog';
 import {
   AdvanceCandidateDto,
   AutomationListQueryDto,
@@ -132,6 +132,17 @@ export class RecruitmentService {
       schemaVersion: 1,
       items: AUTOMATION_CATALOG,
       total: AUTOMATION_CATALOG.length,
+      templates: AUTOMATION_TEMPLATES.map((template) => {
+        const kind = AUTOMATION_CATALOG.find((entry) => entry.kind === template.kind)!;
+        return {
+          ...template,
+          configFields: kind.configFields,
+          status: kind.status,
+          executable: kind.executable,
+          executionNote: `${kind.description} Preset-specific fields not listed in configFields are stored only; the label does not add behavior.`,
+        };
+      }),
+      templateTotal: AUTOMATION_TEMPLATES.length,
     };
   }
 

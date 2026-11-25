@@ -82,7 +82,7 @@ export class RecruitmentController {
   @Get('automations/catalog')
   @ApiOperation({
     summary:
-      'List supported automation types with names, descriptions, config fields, defaults and execution status',
+      'List automation kinds and 16 named presets with configuration before creating a stage',
   })
   @ApiOkResponse({ type: AutomationCatalogResponseDto })
   async automationCatalog(@Req() req: RequestWithUser) {
